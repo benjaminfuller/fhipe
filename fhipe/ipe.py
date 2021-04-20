@@ -41,7 +41,7 @@ def setup(n, group_name = 'MNT159', simulated = False):
   sampled for a random seed which is passed to ./gen_matrices.
 
   Finally, the function constructs the matrices that form the secret key and 
-  publishes the pulbic marapeters and secret key (pp, sk).
+  publishes the public parameters and secret key (pp, sk).
   """
 
   group = PairingGroup(group_name)
