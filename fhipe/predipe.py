@@ -28,118 +28,140 @@ from charm.toolbox.pairinggroup import PairingGroup,ZR,G1,G2,GT,pair
 from subprocess import call, Popen, PIPE
 from ipe import innerprod_pair, parse_matrix
 
+class PredIPEScheme():
+    def __init__(self, n, group_name = 'MNT159', simulated = False):
+        pass
 
-def PredSetup(n, group_name = 'MNT159', simulated = False):
-    """
-    Performs the setup algorithm for IPE.
+    def encrypt(self, x):
+        pass
 
-    This function samples the generators from the group, specified optionally by
-    "group_name". This variable must be one of a few set of strings specified by
-    Charm.
+    def keygen(self, y):
+        pass
 
-    Then, it invokes the C program ./gen_matrices, which samples random matrices
-    and outputs them back to this function. The dimension n is supplied, and the
-    prime is chosen as the order of the group. Additionally, /dev/urandom is
-    sampled for a random seed which is passed to ./gen_matrices.
+    @staticmethod
+    def decrypt(self, public_params, ct, token) -> bool:
+        pass
 
-    Finally, the function constructs the matrices that form the secret key and
-    publishes the public parameters and secret key (pp, sk).
-    """
-    group = PairingGroup(group_name)
-    g1 = group.random(G1)
-    g2 = group.random(G2)
-    assert g1.initPP(), "ERROR: Failed to init pre-computation table for g1."
-    assert g2.initPP(), "ERROR: Failed to init pre-computation table for g2."
-  
-    proc = Popen(
-      [
-        os.path.dirname(os.path.realpath(__file__)) + '/gen_matrices',
-        str(n),
-        str(group.order()),
-        "1" if simulated else "0",
-        ""
-      ],
-      stdout=PIPE
-    )
-    detB_str = proc.stdout.readline().decode()
-    B_str = proc.stdout.readline().decode()
-    Bstar_str = proc.stdout.readline().decode()
+    def getPublicParameters(self):
+        pass
 
-    detB = int(detB_str)
-    B = parse_matrix(B_str, group)
-    Bstar = parse_matrix(Bstar_str, group)
+class BarbosaIPEScheme(PredIPEScheme):
 
-    pp = ()
-    sk = (detB, B, Bstar, group, g1, g2)
-    return (pp, sk)
+    def __init__(self,n, group_name = 'MNT159', simulated = False):
+        """
+        Performs the setup algorithm for IPE.
 
-def PredKeygen(sk, x):
-    """
-    Performs the keygen algorithm for IPE.
-    """
+        This function samples the generators from the group, specified optionally by
+        "group_name". This variable must be one of a few set of strings specified by
+        Charm.
 
-    (detB, B, Bstar, group, g1, g2) = sk
-    n = len(x)
-    alpha = group.random(ZR)
+        Then, it invokes the C program ./gen_matrices, which samples random matrices
+        and outputs them back to this function. The dimension n is supplied, and the
+        prime is chosen as the order of the group. Additionally, /dev/urandom is
+        sampled for a random seed which is passed to ./gen_matrices.
 
-    k1 = [0] * n
-    for j in range(n):
-      sum = 0
-      for i in range(n):
-        sum += x[i] * B[i][j]
-      k1[j] = alpha * sum
+        Finally, the function constructs the matrices that form the secret key and
+        publishes the public parameters and secret key (pp, sk).
+        """
+        group = PairingGroup(group_name)
+        g1 = group.random(G1)
+        g2 = group.random(G2)
+        assert g1.initPP(), "ERROR: Failed to init pre-computation table for g1."
+        assert g2.initPP(), "ERROR: Failed to init pre-computation table for g2."
 
-    for i in range(n):
-      k1[i] = g1 ** k1[i]
+        proc = Popen(
+          [
+            os.path.dirname(os.path.realpath(__file__)) + '/gen_matrices',
+            str(n),
+            str(group.order()),
+            "1" if simulated else "0",
+            ""
+          ],
+          stdout=PIPE
+        )
+        detB_str = proc.stdout.readline().decode()
+        B_str = proc.stdout.readline().decode()
+        Bstar_str = proc.stdout.readline().decode()
 
+        detB = int(detB_str)
+        B = parse_matrix(B_str, group)
+        Bstar = parse_matrix(Bstar_str, group)
 
-    return k1
+        pp = ()
+        self.B = B
+        self.Bstar = Bstar
+        self.group =group
+        self.g1 = g1
+        self.g2 = g2
+        self.public_parameters = pp
 
-def PredEncrypt(sk, x):
-    """
-    Performs the encrypt algorithm for IPE.
-    """
+    def encrypt(self, x):
+        n = len(x)
+        beta = self.group.random(ZR)
 
-    (detB, B, Bstar, group, g1, g2) = sk
-    n = len(x)
-    beta = group.random(ZR)
+        c = [0] * n
+        for j in range(n):
+            sum = 0
+            for i in range(n):
+                sum += x[i] * self.Bstar[i][j]
+            c[j] = beta * sum
 
-    c1 = [0] * n
-    for j in range(n):
-      sum = 0
-      for i in range(n):
-        sum += x[i] * Bstar[i][j]
-      c1[j] = beta * sum
+        for i in range(n):
+            c[i] = self.g2 ** c[i]
+        return c
 
-    for i in range(n):
-      c1[i] = g2 ** c1[i]
+    def keygen(self, y):
+        """
+        Performs the keygen algorithm for IPE.
+        """
 
-    return c1
+        n = len(y)
+        alpha = self.group.random(ZR)
 
-def PredDecrypt(pp, skx, cty):
-    """
-    Performs the decrypt algorithm for IPE on a secret key skx and ciphertext cty.
-    The output is the inner product <x,y>, so long as it is in the range
-    [0,max_innerprod].
-    """
+        k = [0] * n
+        for j in range(n):
+          sum = 0
+          for i in range(n):
+            sum += y[i] * self.B[i][j]
+          k[j] = alpha * sum
 
-    result = innerprod_pair(skx, cty)
-  #  print(result)
-    group = PairingGroup(group_name)
-    identity = group.random(GT) ** 0
-    return (result == identity)
+        for i in range(n):
+          k[i] = self.g1 ** k[i]
+        return k
+
+    def getPublicParameters(self):
+        return self.public_parameters
+
+    @staticmethod
+    def decrypt(public_params, ct, token) -> bool:
+        """
+        Performs the decrypt algorithm for IPE on a secret key skx and ciphertext cty.
+        The output is the inner product <x,y>, so long as it is in the range
+        [0,max_innerprod].
+        """
+
+        result = innerprod_pair(token, ct)
+        group = PairingGroup(group_name)
+        identity = group.random(GT) ** 0
+        return (result == identity)
+
 
 
 
 n=4
 group_name='MNT159'
-(pp, sk) = PredSetup(n, group_name)
-#print(sk)
-x=(1, -1, -1, 1)
-ctx = PredEncrypt(sk, x)
-y=(1, 1, 1, 1)
-tky = PredKeygen(sk, y)
-print(PredDecrypt(pp, tky, ctx))
+barbosa = BarbosaIPEScheme(n, group_name)
+
+x1=(1, -1, -1, 1)
+ctx = barbosa.encrypt(x1)
+y1=(1, 1, 1, 1)
+tky1 = barbosa.keygen(y1)
+tky2 = barbosa.keygen((1,5,1,1))
+x2=(0,0,0,0)
+ctzero = barbosa.encrypt(x2)
+assert(BarbosaIPEScheme.decrypt(barbosa.getPublicParameters(), ctx, tky1))
+assert(BarbosaIPEScheme.decrypt(barbosa.getPublicParameters(), ctzero, tky1))
+assert(not BarbosaIPEScheme.decrypt(barbosa.getPublicParameters(), ctx, tky2))
 
 
 
