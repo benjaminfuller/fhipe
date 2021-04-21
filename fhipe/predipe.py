@@ -1,5 +1,5 @@
 """
-Copyright (c) 2016, Kevin Lewi
+Copyright (c) 2021, Benjamin Fuller
  
 Permission to use, copy, modify, and/or distribute this software for any
 purpose with or without fee is hereby granted, provided that the above
@@ -15,7 +15,7 @@ PERFORMANCE OF THIS SOFTWARE.
 """
 
 """
-Implementation of function-hiding inner product encryption (FHIPE).
+Implementation of Barbosa et al. CT RSA Predicate IPE Scheme
 """
 
 import sys, os, math, random, time, zlib
@@ -26,7 +26,7 @@ sys.path.insert(1, os.path.abspath('../charm'))
 
 from charm.toolbox.pairinggroup import PairingGroup,ZR,G1,G2,GT,pair
 from subprocess import call, Popen, PIPE
-from ipe import innerprod_pair, parse_matrix
+from fhipe import ipe
 
 class PredIPEScheme():
     def __init__(self, n, group_name = 'MNT159', simulated = False):
@@ -84,8 +84,8 @@ class BarbosaIPEScheme(PredIPEScheme):
         Bstar_str = proc.stdout.readline().decode()
 
         detB = int(detB_str)
-        B = parse_matrix(B_str, group)
-        Bstar = parse_matrix(Bstar_str, group)
+        B = ipe.parse_matrix(B_str, group)
+        Bstar = ipe.parse_matrix(Bstar_str, group)
 
         pp = ()
         self.B = B
@@ -133,35 +133,20 @@ class BarbosaIPEScheme(PredIPEScheme):
         return self.public_parameters
 
     @staticmethod
-    def decrypt(public_params, ct, token) -> bool:
+    def decrypt(public_params, ct, token, group_name='MNT159') -> bool:
         """
         Performs the decrypt algorithm for IPE on a secret key skx and ciphertext cty.
         The output is the inner product <x,y>, so long as it is in the range
         [0,max_innerprod].
         """
 
-        result = innerprod_pair(token, ct)
+        result = ipe.innerprod_pair(ct, token)
         group = PairingGroup(group_name)
         identity = group.random(GT) ** 0
-        return (result == identity)
+        return result == identity
 
 
 
-
-n=4
-group_name='MNT159'
-barbosa = BarbosaIPEScheme(n, group_name)
-
-x1=(1, -1, -1, 1)
-ctx = barbosa.encrypt(x1)
-y1=(1, 1, 1, 1)
-tky1 = barbosa.keygen(y1)
-tky2 = barbosa.keygen((1,5,1,1))
-x2=(0,0,0,0)
-ctzero = barbosa.encrypt(x2)
-assert(BarbosaIPEScheme.decrypt(barbosa.getPublicParameters(), ctx, tky1))
-assert(BarbosaIPEScheme.decrypt(barbosa.getPublicParameters(), ctzero, tky1))
-assert(not BarbosaIPEScheme.decrypt(barbosa.getPublicParameters(), ctx, tky2))
 
 
 
