@@ -92,4 +92,3 @@ class ProximitySearch():
                     if res is not None:
                         result_list.append(res)
         return result_list
-    

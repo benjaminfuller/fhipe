@@ -84,6 +84,7 @@ class BarbosaIPEScheme(PredIPEScheme):
         Bstar_str = proc.stdout.readline().decode()
 
         detB = int(detB_str)
+        print(B_str)
         B = ipe.parse_matrix(B_str, group)
         Bstar = ipe.parse_matrix(Bstar_str, group)
 
