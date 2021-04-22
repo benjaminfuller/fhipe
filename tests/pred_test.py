@@ -69,17 +69,46 @@ if __name__ == "__main__":
         relevant_indices = database.search(encrypted_query)
         assert (len(relevant_indices) == 0)
 
+
+        print("Testing multi basis scheme")
+        x1 = [1, -1, -1, 1]
+        x2 = [0, 0, 0, 0]
+        y1 = [1, 1, 1, 1]
+        y2 = [1, 5, 1, -3]
+
+
         multi_scheme = multibasispredipe.MultiBasesPredScheme(n=vector_length, group_name=group_name, num_bases=1)
         multi_scheme.generate_keys()
-        c = multi_scheme.encrypt(x1)
-        tk = multi_scheme.keygen(y1)
-        assert(multi_scheme.decrypt(multi_scheme.getPublicParameters(), c, tk))
+        ctx = multi_scheme.encrypt(x1)
+        tky1 = multi_scheme.keygen(y1)
+        tky2 = multi_scheme.keygen(y2)
+        ctzero = multi_scheme.encrypt(x2)
+
+        assert (multi_scheme.decrypt(barbosa.getPublicParameters(), ctzero, tky1))
+        assert (not multi_scheme.decrypt(barbosa.getPublicParameters(), ctx, tky2))
+        assert (multi_scheme.decrypt(barbosa.getPublicParameters(), ctx, tky1, group_name))
 
         multi_scheme = multibasispredipe.MultiBasesPredScheme(n=vector_length, group_name=group_name, num_bases=2)
         multi_scheme.generate_keys()
-        c = multi_scheme.encrypt(x1)
-        tk = multi_scheme.keygen(y1)
-        assert(multi_scheme.decrypt(multi_scheme.getPublicParameters(), c, tk))
+        ctx = multi_scheme.encrypt(x1)
+        tky1 = multi_scheme.keygen(y1)
+        tky2 = multi_scheme.keygen(y2)
+        ctzero = multi_scheme.encrypt(x2)
+
+        assert (multi_scheme.decrypt(barbosa.getPublicParameters(), ctzero, tky1))
+        assert (not multi_scheme.decrypt(barbosa.getPublicParameters(), ctx, tky2))
+        assert (multi_scheme.decrypt(barbosa.getPublicParameters(), ctx, tky1, group_name))
+
+        multi_scheme = multibasispredipe.MultiBasesPredScheme(n=vector_length, group_name=group_name, num_bases=4)
+        multi_scheme.generate_keys()
+        ctx = multi_scheme.encrypt(x1)
+        tky1 = multi_scheme.keygen(y1)
+        tky2 = multi_scheme.keygen(y2)
+        ctzero = multi_scheme.encrypt(x2)
+
+        assert (multi_scheme.decrypt(barbosa.getPublicParameters(), ctzero, tky1))
+        assert (not multi_scheme.decrypt(barbosa.getPublicParameters(), ctx, tky2))
+        assert (multi_scheme.decrypt(barbosa.getPublicParameters(), ctx, tky1, group_name))
 
 
 
