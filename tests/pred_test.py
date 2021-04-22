@@ -4,7 +4,7 @@ import sys, os, math, argparse
 sys.path.insert(0, os.path.abspath('.'))
 sys.path.insert(1, os.path.abspath('..'))
 
-from fhipe import predipe, prox_search
+from fhipe import predipe, prox_search, multibasispredipe
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Benchmarking of Proximity Search Schemes.')
@@ -41,29 +41,37 @@ if __name__ == "__main__":
         barbosa.generate_keys()
         database.generate_keys()
 
-    print("Testing Basic Predicate Functionality")
-    x1=[1, -1, -1, 1]
-    ctx = barbosa.encrypt(x1)
-    y1=[1, 1, 1, 1]
-    y2=[1, 5, 1, 1]
-    tky1 = barbosa.keygen(y1)
-    tky2 = barbosa.keygen(y2)
-    x2=[0, 0, 0, 0]
-    ctzero = barbosa.encrypt(x2)
-    assert(predipe.BarbosaIPEScheme.decrypt(barbosa.getPublicParameters(), ctzero, tky1))
-    assert(not predipe.BarbosaIPEScheme.decrypt(barbosa.getPublicParameters(), ctx, tky2))
-    assert(predipe.BarbosaIPEScheme.decrypt(barbosa.getPublicParameters(), ctx, tky1, group_name))
+    if vector_length == 4:
+        print("Testing Basic Predicate Functionality")
+        x1=[1, -1, -1, 1]
+        ctx = barbosa.encrypt(x1)
+        y1=[1, 1, 1, 1]
+        y2=[1, 5, 1, 1]
+        tky1 = barbosa.keygen(y1)
+        tky2 = barbosa.keygen(y2)
+        x2=[0, 0, 0, 0]
+        ctzero = barbosa.encrypt(x2)
+        assert(predipe.BarbosaIPEScheme.decrypt(barbosa.getPublicParameters(), ctzero, tky1))
+        assert(not predipe.BarbosaIPEScheme.decrypt(barbosa.getPublicParameters(), ctx, tky2))
+        assert(predipe.BarbosaIPEScheme.decrypt(barbosa.getPublicParameters(), ctx, tky1, group_name))
 
 
-    print("Testing Proximity Search")
-    data = [[0, 1, 0, 1], [1, 0, 1, 0]]
-    database.encrypt_dataset(data)
-    query = [0,1,0,0]
-    encrypted_query = database.generate_query(query, 1)
-    relevant_indices = database.search(encrypted_query)
-    assert(len(relevant_indices)==1 and relevant_indices[0] == 0)
-    encrypted_query = database.generate_query(query, 0)
-    relevant_indices = database.search(encrypted_query)
-    assert (len(relevant_indices) == 0)
+        print("Testing Proximity Search")
+        data = [[0, 1, 0, 1], [1, 0, 1, 0]]
+        database.encrypt_dataset(data)
+        query = [0,1,0,0]
+        encrypted_query = database.generate_query(query, 1)
+        assert(len(encrypted_query)==2)
+        relevant_indices = database.search(encrypted_query)
+        assert(len(relevant_indices)==1 and relevant_indices[0] == 0)
+        encrypted_query = database.generate_query(query, 0)
+        assert (len(encrypted_query) == 1)
+        relevant_indices = database.search(encrypted_query)
+        assert (len(relevant_indices) == 0)
+
+        multi_scheme = multibasispredipe.MultiBasesPredScheme(n=vector_length, group_name=group_name, num_bases=2)
+        multi_scheme.generate_keys()
+        multi_scheme.encrypt(x1)
+
 
 

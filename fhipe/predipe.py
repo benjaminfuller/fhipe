@@ -18,7 +18,7 @@ PERFORMANCE OF THIS SOFTWARE.
 Implementation of Barbosa et al. CT RSA Predicate IPE Scheme
 """
 
-import sys, os, math, random, time, zlib
+import sys, os, math, random, time, zlib, secrets
 
 # Path hack
 sys.path.insert(0, os.path.abspath('charm'))
@@ -70,53 +70,67 @@ class BarbosaIPEScheme(PredIPEScheme):
         self.simulated = simulated
         self.g1 = None
         self.g2 = None
+        self.B= None
+        self.Bstar = None
+        self.public_parameters = None
 
-
-
-    def generate_keys(self):
+    @staticmethod
+    def generate_matrices(vector_length, simulated, group):
+        if not simulated:
+            matrix_seed = secrets.token_bytes(128)
+        else:
+            matrix_seed=""
         proc = Popen(
-          [
-            os.path.dirname(os.path.realpath(__file__)) + '/gen_matrices',
-            str(self.vector_length),
-            str(self.group.order()),
-            "1" if self.simulated else "0",
-            ""
-          ],
-          stdout=PIPE
+            [
+                os.path.dirname(os.path.realpath(__file__)) + '/gen_matrices',
+                str(vector_length),
+                str(group.order()),
+                "1" if simulated else "0",
+                str(matrix_seed)
+            ],
+            stdout=PIPE
         )
         _ = proc.stdout.readline().decode()
         B_str = proc.stdout.readline().decode()
         Bstar_str = proc.stdout.readline().decode()
-
-        self.g1 = self.group.random(G1)
-        self.g2 = self.group.random(G2)
-        B = ipe.parse_matrix(B_str, self.group)
-        Bstar = ipe.parse_matrix(Bstar_str, self.group)
-
+        B = ipe.parse_matrix(B_str, group)
+        Bstar = ipe.parse_matrix(Bstar_str, group)
 
         pp = ()
-        self.B = B
-        self.Bstar = Bstar
-        self.public_parameters = pp
+        return B, Bstar, pp
 
+    def generate_keys(self):
+        (self.B, self.Bstar, self.public_parameters) =self.generate_matrices(self.vector_length, self.simulated, self.group)
+        self.g1 = self.group.random(G1)
+        self.g2 = self.group.random(G2)
 
-    def serialize_key(self, matrix_filename, generator_filename):
-        #This has the effect of putting two spaces after the dimensions.  This is to be consistent
-        #with what flint is doing as we're generating matrices from flint in other places
-        result_str = str(self.vector_length)+" "+str(self.vector_length)+" "
+    def serialize_matrices(self, matrix_filename):
+        # This has the effect of putting two spaces after the dimensions.  This is to be consistent
+        # with what flint is doing as we're generating matrices from flint in other places
+        result_str = str(self.vector_length) + " " + str(self.vector_length) + " "
         for x in self.B:
             for y in x:
-                result_str = result_str+" "+str(y)
-        result_str = result_str+"\n"+str(self.vector_length)+" "+str(self.vector_length)+" "
+                result_str = result_str + " " + str(y)
+        result_str = result_str + "\n" + str(self.vector_length) + " " + str(self.vector_length) + " "
         for x in self.Bstar:
             for y in x:
                 result_str = result_str + " " + str(y)
 
+        with open(matrix_filename, "a") as secret_key_file:
+            secret_key_file.write(result_str)
+            secret_key_file.close()
+
+    def serialize_key(self, matrix_filename, generator_filename):
+        open(matrix_filename, 'w').close()
+
+        self.serialize_matrices(matrix_filename)
+
+
         g1bytes = objectToBytes(self.g1, self.group)
         g2bytes = objectToBytes(self.g2, self.group)
 
-        result_str= result_str +"\n"+str(len(g1bytes))+" "+str(len(g2bytes))
-        with open(matrix_filename, "w") as secret_key_file:
+        result_str= "\n"+str(len(g1bytes))+" "+str(len(g2bytes))
+        with open(matrix_filename, "a") as secret_key_file:
             secret_key_file.write(result_str)
             secret_key_file.close()
 
@@ -151,7 +165,6 @@ class BarbosaIPEScheme(PredIPEScheme):
 
         assert self.g1.initPP(), "ERROR: Failed to init pre-computation table for g1."
         assert self.g2.initPP(), "ERROR: Failed to init pre-computation table for g2."
-
 
     def encrypt(self, x):
         n = len(x)
@@ -199,11 +212,7 @@ class BarbosaIPEScheme(PredIPEScheme):
         """
 
         result = ipe.innerprod_pair(ct, token)
-        group = PairingGroup(group_name)
-        identity = group.random(GT) ** 0
-        return result == identity
-
-
+        return result == PairingGroup(group_name).init(GT,1)
 
 
 

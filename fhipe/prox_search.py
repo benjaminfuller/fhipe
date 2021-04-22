@@ -87,6 +87,7 @@ class ProximitySearch():
             encrypted_query.append(self.predinstance.keygen(query_set[next_to_encode]))
             query_set.remove(query_set[next_to_encode])
 
+
         return encrypted_query
 
     def search(self, query):
