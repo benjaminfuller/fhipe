@@ -27,7 +27,6 @@ sys.path.insert(0, os.path.abspath('charm'))
 sys.path.insert(1, os.path.abspath('../charm'))
 
 from charm.toolbox.pairinggroup import PairingGroup,ZR,G1,G2,GT,pair
-from subprocess import call, Popen, PIPE
 from fhipe import ipe
 from fhipe.predipe import PredIPEScheme
 from fhipe.predipe import BarbosaIPEScheme
@@ -38,58 +37,84 @@ class MultiBasesPredScheme(PredIPEScheme):
     def __init__(self, n, group_name = 'MNT159', num_bases = 1, simulated = False):
         group = PairingGroup(group_name)
         self.group = group
+        self.group_name = group_name
         self.vector_length = n
         self.simulated = simulated
         self.g1 = None
         self.g2 = None
         self.num_bases = num_bases
+        assert (float(num_bases).is_integer()), "ERROR: Sigma must be an integer."
+        assert (num_bases > 0), "ERROR: Sigma must be greater than zero."
+        assert (num_bases < n), "ERROR: Sigma must be lesser or equal to n."
+        #Revisist whether sigma has to divide n
+        assert (n % num_bases == 0), "ERROR: Sigma must divide n."
         self.component_length = ceil(self.vector_length/self.num_bases)+1
+        self.barbosa_vec=[]
 
 
     def generate_keys(self):
         self.g1 = self.group.random(G1)
         self.g2 = self.group.random(G2)
 
-        Bvec = []
-        Bstarvec = []
-        ppvec = []
+        self.barbosa_vec=[]
+
         for i in range(self.num_bases):
             (B, Bstar, pp) = BarbosaIPEScheme.generate_matrices(self.component_length, self.simulated, self.group)
-            Bvec.append(B)
-            Bstarvec.append(Bstar)
-            ppvec.append(pp)
+            b_instance = BarbosaIPEScheme(self.vector_length, self.group_name, self.simulated)
+            b_instance.set_key(B, Bstar, pp, self.g1, self.g2)
+            self.barbosa_vec.append(b_instance)
 
     def encrypt(self, x):
-        psivec = []
-        lastpsi = 0
-        for i in range(self.num_bases-1):
-            psi_i =  self.group.random(ZR)
-            psivec.append(psi_i)
-            lastpsi-=psi_i
-        psivec.append(lastpsi)
-        #Secret share 0 for vector
-        share  = self.group.init(ZR, 0)
-        for i in psivec:
-            share+=i
+        assert(len(x) == self.vector_length)
+        n = self.vector_length
+        # prepare secret sharing of zero
+        zeta = []
+        zeta_sigma = self.group.init(ZR, 0)
 
-        componentxvec = []
-        start =0
-        end = 0
-        for i in range(self.num_bases):
-            print("Hello")
+        for l in range(self.num_bases - 1):
+            zeta.append(self.group.random(ZR))
+            zeta_sigma += zeta[l]
+        zeta.append(zeta_sigma * (-1))
+        print(zeta)
 
-        print(componentxvec)
-        pass
+        for l in range(self.num_bases):
+
+            x_modified = [0] * self.component_length
+            for j in range(self.component_length-1):
+                x_modified[j] = x[l*int(n/self.num_bases)+j]
+            x_modified[self.component_length-1]= zeta[l]
+            print("Modified x "+str(x_modified))
+        return None
 
     def keygen(self, y):
-        pass
+        """
+        Performs the keygen algorithm for IPE.
+        """
+        assert(len(y) == self.vector_length)
+        n = self.vector_length
+        for l in range(self.num_bases):
 
-    @staticmethod
-    def decrypt(self, public_params, ct, token) -> bool:
-        pass
+            y_modified = [0] * self.component_length
+            for j in range(self.component_length-1):
+                y_modified[j] = y[l*int(n/self.num_bases)+j]
+            y_modified[self.component_length-1]= 1
+            print("Modified y "+str(y_modified))
+        return None
 
     def getPublicParameters(self):
-        pass
+        a =[]
+        for x in self.barbosa_vec:
+            a.append(x.getPublicParameters())
+        return a
 
+    @staticmethod
+    def decrypt(public_params, ct, tk, group_name='MNT159') -> bool:
+        """
+        Performs the decrypt algorithm for IPE on a secret key skx and ciphertext cty.
+        The output is the inner product <x,y>, so long as it is in the range
+        [0,max_innerprod].
+        """
+
+        return None
 
 
