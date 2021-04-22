@@ -173,9 +173,10 @@ class BarbosaIPEScheme(PredIPEScheme):
         assert self.g1.initPP(), "ERROR: Failed to init pre-computation table for g1."
         assert self.g2.initPP(), "ERROR: Failed to init pre-computation table for g2."
 
-    def encrypt(self, x):
+    def encrypt(self, x, beta=None):
+        if not beta:
+            beta = self.group.random(ZR)
         n = len(x)
-        beta = self.group.random(ZR)
 
         c = [0] * n
         for j in range(n):
@@ -188,24 +189,23 @@ class BarbosaIPEScheme(PredIPEScheme):
             c[i] = self.g2 ** c[i]
         return c
 
-    def keygen(self, y):
-        """
-        Performs the keygen algorithm for IPE.
-        """
-
+    def keygen(self, y, alpha=None):
+        if not alpha:
+            alpha = self.group.random(ZR)
         n = len(y)
-        alpha = self.group.random(ZR)
 
         k = [0] * n
         for j in range(n):
-          sum = 0
-          for i in range(n):
-            sum += y[i] * self.B[i][j]
-          k[j] = alpha * sum
+            sum = 0
+            for i in range(n):
+                sum += y[i] * self.B[i][j]
+            k[j] = alpha * sum
 
         for i in range(n):
-          k[i] = self.g1 ** k[i]
+            k[i] = self.g1 ** k[i]
         return k
+
+
 
     def getPublicParameters(self):
         return self.public_parameters

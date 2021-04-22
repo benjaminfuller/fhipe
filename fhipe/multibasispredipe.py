@@ -81,6 +81,8 @@ class MultiBasesPredScheme(PredIPEScheme):
         assert(zeta_sum == self.group.init(ZR, 0))
 
         c = []
+
+        beta = self.group.random(ZR)
         for l in range(self.num_bases):
 
             x_modified = [0] * self.component_length
@@ -89,7 +91,7 @@ class MultiBasesPredScheme(PredIPEScheme):
 #            x_modified[self.component_length-1]= zeta[l]
             x_modified[self.component_length-1]= 0
             print("Modified x "+str(x_modified))
-            c.append(self.barbosa_vec[l].encrypt(x_modified))
+            c.append(self.barbosa_vec[l].encrypt(x_modified, beta=beta))
         return c
 
     def keygen(self, y):
@@ -99,6 +101,8 @@ class MultiBasesPredScheme(PredIPEScheme):
         assert(len(y) == self.vector_length)
         n = self.vector_length
         tk= []
+
+        alpha = self.group.random(ZR)
         for l in range(self.num_bases):
 
             y_modified = [0] * self.component_length
@@ -106,7 +110,7 @@ class MultiBasesPredScheme(PredIPEScheme):
                 y_modified[j] = y[l*int(n/self.num_bases)+j]
             y_modified[self.component_length-1]= 1
             print("Modified y "+str(y_modified))
-            tk.append(self.barbosa_vec[l].keygen(y_modified))
+            tk.append(self.barbosa_vec[l].keygen(y_modified, alpha=alpha))
         return tk
 
     def getPublicParameters(self):
@@ -123,9 +127,9 @@ class MultiBasesPredScheme(PredIPEScheme):
         [0,max_innerprod].
         """
         ct_flat =  [item for subl in ct for item in subl]
-        print(ct_flat)
+        print("Flat ciphertext "+str(len(ct_flat))+" "+str(ct_flat))
         tk_flat =  [item for subl in tk for item in subl]
-        print(tk_flat)
+        print("Flat token "+str(len(tk_flat))+" "+str(tk_flat))
         return BarbosaIPEScheme.decrypt(public_params[0], ct_flat,tk_flat)
 
 
