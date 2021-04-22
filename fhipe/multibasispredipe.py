@@ -160,9 +160,9 @@ class MultiBasesPredScheme(PredIPEScheme):
         [0,max_innerprod].
         """
         ct_flat =  [item for subl in ct for item in subl]
-        #print("Flat ciphertext "+str(len(ct_flat))+" "+str(ct_flat))
+        print("Flat ciphertext "+str(len(ct_flat))+" "+str(ct_flat))
         tk_flat =  [item for subl in tk for item in subl]
-        #print("Flat token "+str(len(tk_flat))+" "+str(tk_flat))
+        print("Flat token "+str(len(tk_flat))+" "+str(tk_flat))
         res = 0
         L = map(lambda i: ct_flat[i]*tk_flat[i], range(len(ct_flat)))
         for i in L:

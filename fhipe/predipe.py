@@ -132,10 +132,10 @@ class BarbosaIPEScheme(PredIPEScheme):
         print(self.B)
         print("B star")
         print(self.Bstar)
-        print("g1")
-        print(self.g1)
-        print("g2")
-        print(self.g2)
+        # print("g1")
+        # print(self.g1)
+        # print("g2")
+        # print(self.g2)
 
     def serialize_key(self, matrix_filename, generator_filename):
         open(matrix_filename, 'w').close()
