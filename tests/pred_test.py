@@ -99,10 +99,10 @@ if __name__ == "__main__":
         # assert (not multi_scheme.decrypt(multi_scheme.getPublicParameters(), ctx, tky2))
         # assert (multi_scheme.decrypt(multi_scheme.getPublicParameters(), ctx, tky1, group_name))
 
-        multi_scheme = multibasispredipe.MultiBasesPredScheme(n=6, group_name=group_name, num_bases=2)
+        multi_scheme = multibasispredipe.MultiBasesPredScheme(n=6, group_name=group_name, num_bases=3)
         multi_scheme.generate_keys()
-        ctx = multi_scheme.encrypt([1, 1, -1, -1, -1, 1])
-        tky = multi_scheme.keygen([1, -1, 1, -1, -1, -1])
+        ctx = multi_scheme.encrypt([1, 1, 1, -1, -1, 0])
+        tky = multi_scheme.keygen([1, -1,1, -1, 2, 1])
         assert (multi_scheme.fake_decrypt(multi_scheme.getPublicParameters(), ctx, tky))
 
         # multi_scheme = multibasispredipe.MultiBasesPredScheme(n=vector_length, group_name=group_name, num_bases=4)
