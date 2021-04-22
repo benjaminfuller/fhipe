@@ -22,21 +22,24 @@ if __name__ == "__main__":
 
     vector_length = args['vector_length']
 
+    group_name = 'MNT159'
+    barbosa = predipe.BarbosaIPEScheme(n=vector_length)
+    database = prox_search.ProximitySearch(vector_length, predipe.BarbosaIPEScheme, group_name)
+
     if(args['save'] and args['matrix_file'] and args['generator_file']):
-        # Doing some basic testing
-        group_name = 'MNT159'
-        barbosa = predipe.BarbosaIPEScheme(n = vector_length)
         barbosa.generate_keys()
-        secret_key = barbosa.serialize_key(args['matrix_file'][0], args['generator_file'][0])
-        
+        barbosa.serialize_key(args['matrix_file'][0]+'pred', args['generator_file'][0]+'pred')
+
+        database.generate_keys()
+        database.serialize_key(args['matrix_file'][0]+'prox', args['generator_file'][0]+'prox')
+
+
     elif(args['load'] and args['matrix_file'] and args['generator_file']):
-        group_name = 'MNT159'
-        barbosa = predipe.BarbosaIPEScheme(n=vector_length, group_name=group_name)
-        barbosa.deserialize_key(args['matrix_file'][0], args['generator_file'][0])
+        barbosa.deserialize_key(args['matrix_file'][0]+'pred', args['generator_file'][0]+'pred')
+        database.deserialize_key(args['matrix_file'][0]+'prox', args['generator_file'][0]+'prox')
     else:
-        group_name = 'MNT159'
-        barbosa = predipe.BarbosaIPEScheme(n=vector_length)
         barbosa.generate_keys()
+        database.generate_keys()
 
     print("Testing Basic Predicate Functionality")
     x1=[1, -1, -1, 1]
@@ -52,18 +55,15 @@ if __name__ == "__main__":
     assert(predipe.BarbosaIPEScheme.decrypt(barbosa.getPublicParameters(), ctx, tky1, group_name))
 
 
-    exit(0)
-
-
     print("Testing Proximity Search")
-    n=4
-    group_name='MNT159'
-    database = prox_search.ProximitySearch(n, predipe.BarbosaIPEScheme, group_name)
     data = [[0, 1, 0, 1], [1, 0, 1, 0]]
     database.encrypt_dataset(data)
-
-
     query = [0,1,0,0]
     encrypted_query = database.generate_query(query, 1)
     relevant_indices = database.search(encrypted_query)
-    print("The matches are "+str(relevant_indices))
+    assert(len(relevant_indices)==1 and relevant_indices[0] == 0)
+    encrypted_query = database.generate_query(query, 0)
+    relevant_indices = database.search(encrypted_query)
+    assert (len(relevant_indices) == 0)
+
+
