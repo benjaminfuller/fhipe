@@ -46,7 +46,7 @@ if __name__ == "__main__":
         x1=[1, -1, -1, 1]
         ctx = barbosa.encrypt(x1)
         y1=[1, 1, 1, 1]
-        y2=[1, 5, 1, 1]
+        y2=[1, 5, 1, -3]
         tky1 = barbosa.keygen(y1)
         tky2 = barbosa.keygen(y2)
         x2=[0, 0, 0, 0]
@@ -69,9 +69,17 @@ if __name__ == "__main__":
         relevant_indices = database.search(encrypted_query)
         assert (len(relevant_indices) == 0)
 
+        multi_scheme = multibasispredipe.MultiBasesPredScheme(n=vector_length, group_name=group_name, num_bases=1)
+        multi_scheme.generate_keys()
+        c = multi_scheme.encrypt(x1)
+        tk = multi_scheme.keygen(y1)
+        assert(multi_scheme.decrypt(multi_scheme.getPublicParameters(), c, tk))
+
         multi_scheme = multibasispredipe.MultiBasesPredScheme(n=vector_length, group_name=group_name, num_bases=2)
         multi_scheme.generate_keys()
-        multi_scheme.encrypt(x1)
+        c = multi_scheme.encrypt(x1)
+        tk = multi_scheme.keygen(y1)
+        assert(multi_scheme.decrypt(multi_scheme.getPublicParameters(), c, tk))
 
 
 

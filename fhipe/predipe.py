@@ -99,6 +99,13 @@ class BarbosaIPEScheme(PredIPEScheme):
         pp = ()
         return B, Bstar, pp
 
+    def set_key(self, B, Bstar, pp, g1, g2):
+        self.B = B
+        self.Bstar = Bstar
+        self.public_parameters = pp
+        self.g1 = g1
+        self.g2 = g2
+
     def generate_keys(self):
         (self.B, self.Bstar, self.public_parameters) =self.generate_matrices(self.vector_length, self.simulated, self.group)
         self.g1 = self.group.random(G1)

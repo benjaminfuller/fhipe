@@ -60,7 +60,7 @@ class MultiBasesPredScheme(PredIPEScheme):
 
         for i in range(self.num_bases):
             (B, Bstar, pp) = BarbosaIPEScheme.generate_matrices(self.component_length, self.simulated, self.group)
-            b_instance = BarbosaIPEScheme(self.vector_length, self.group_name, self.simulated)
+            b_instance = BarbosaIPEScheme(self.component_length, self.group_name, self.simulated)
             b_instance.set_key(B, Bstar, pp, self.g1, self.g2)
             self.barbosa_vec.append(b_instance)
 
@@ -75,16 +75,22 @@ class MultiBasesPredScheme(PredIPEScheme):
             zeta.append(self.group.random(ZR))
             zeta_sigma += zeta[l]
         zeta.append(zeta_sigma * (-1))
-        print(zeta)
+        zeta_sum = self.group.init(ZR, 0)
+        for z in zeta:
+            zeta_sum+=z
+        assert(zeta_sum == self.group.init(ZR, 0))
 
+        c = []
         for l in range(self.num_bases):
 
             x_modified = [0] * self.component_length
             for j in range(self.component_length-1):
                 x_modified[j] = x[l*int(n/self.num_bases)+j]
-            x_modified[self.component_length-1]= zeta[l]
+#            x_modified[self.component_length-1]= zeta[l]
+            x_modified[self.component_length-1]= 0
             print("Modified x "+str(x_modified))
-        return None
+            c.append(self.barbosa_vec[l].encrypt(x_modified))
+        return c
 
     def keygen(self, y):
         """
@@ -92,6 +98,7 @@ class MultiBasesPredScheme(PredIPEScheme):
         """
         assert(len(y) == self.vector_length)
         n = self.vector_length
+        tk= []
         for l in range(self.num_bases):
 
             y_modified = [0] * self.component_length
@@ -99,7 +106,8 @@ class MultiBasesPredScheme(PredIPEScheme):
                 y_modified[j] = y[l*int(n/self.num_bases)+j]
             y_modified[self.component_length-1]= 1
             print("Modified y "+str(y_modified))
-        return None
+            tk.append(self.barbosa_vec[l].keygen(y_modified))
+        return tk
 
     def getPublicParameters(self):
         a =[]
@@ -114,7 +122,10 @@ class MultiBasesPredScheme(PredIPEScheme):
         The output is the inner product <x,y>, so long as it is in the range
         [0,max_innerprod].
         """
-
-        return None
+        ct_flat =  [item for subl in ct for item in subl]
+        print(ct_flat)
+        tk_flat =  [item for subl in tk for item in subl]
+        print(tk_flat)
+        return BarbosaIPEScheme.decrypt(public_params[0], ct_flat,tk_flat)
 
 
