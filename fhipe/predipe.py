@@ -27,6 +27,7 @@ sys.path.insert(1, os.path.abspath('../charm'))
 from charm.toolbox.pairinggroup import PairingGroup,ZR,G1,G2,GT,pair
 from subprocess import call, Popen, PIPE
 from fhipe import ipe
+from charm.core.engine.util import objectToBytes,bytesToObject
 
 class PredIPEScheme():
     def __init__(self, n, group_name = 'MNT159', simulated = False):
@@ -64,37 +65,93 @@ class BarbosaIPEScheme(PredIPEScheme):
         publishes the public parameters and secret key (pp, sk).
         """
         group = PairingGroup(group_name)
-        g1 = group.random(G1)
-        g2 = group.random(G2)
-        assert g1.initPP(), "ERROR: Failed to init pre-computation table for g1."
-        assert g2.initPP(), "ERROR: Failed to init pre-computation table for g2."
+        self.group = group
+        self.vector_length = n
+        self.simulated = simulated
+        self.g1 = None
+        self.g2 = None
 
+
+
+    def generate_keys(self):
         proc = Popen(
           [
             os.path.dirname(os.path.realpath(__file__)) + '/gen_matrices',
-            str(n),
-            str(group.order()),
-            "1" if simulated else "0",
+            str(self.vector_length),
+            str(self.group.order()),
+            "1" if self.simulated else "0",
             ""
           ],
           stdout=PIPE
         )
-        detB_str = proc.stdout.readline().decode()
+        _ = proc.stdout.readline().decode()
         B_str = proc.stdout.readline().decode()
         Bstar_str = proc.stdout.readline().decode()
 
-        detB = int(detB_str)
-        print(B_str)
-        B = ipe.parse_matrix(B_str, group)
-        Bstar = ipe.parse_matrix(Bstar_str, group)
+        self.g1 = self.group.random(G1)
+        self.g2 = self.group.random(G2)
+        B = ipe.parse_matrix(B_str, self.group)
+        Bstar = ipe.parse_matrix(Bstar_str, self.group)
+
 
         pp = ()
         self.B = B
         self.Bstar = Bstar
-        self.group =group
-        self.g1 = g1
-        self.g2 = g2
         self.public_parameters = pp
+
+
+    def serialize_key(self, matrix_filename, generator_filename):
+        #This has the effect of putting two spaces after the dimensions.  This is to be consistent
+        #with what flint is doing as we're generating matrices from flint in other places
+        result_str = str(self.vector_length)+" "+str(self.vector_length)+" "
+        for x in self.B:
+            for y in x:
+                result_str = result_str+" "+str(y)
+        result_str = result_str+"\n"+str(self.vector_length)+" "+str(self.vector_length)+" "
+        for x in self.Bstar:
+            for y in x:
+                result_str = result_str + " " + str(y)
+
+        g1bytes = objectToBytes(self.g1, self.group)
+        g2bytes = objectToBytes(self.g2, self.group)
+
+        result_str= result_str +"\n"+str(len(g1bytes))+" "+str(len(g2bytes))
+        with open(matrix_filename, "w") as secret_key_file:
+            secret_key_file.write(result_str)
+            secret_key_file.close()
+
+        with open(generator_filename, "wb") as secret_key_file:
+            secret_key_file.write(g1bytes)
+            secret_key_file.write(g2bytes)
+            secret_key_file.close()
+
+
+    def deserialize_key(self, matrix_filename, generator_filename):
+        matrix_contents=""
+        with open(matrix_filename, "r") as secret_key_file:
+            matrix_contents = secret_key_file.read()
+            secret_key_file.close()
+
+        (Bstr, Bstarstr, gparams) = str.split(matrix_contents, '\n')
+        B = ipe.parse_matrix(Bstr, self.group)
+        Bstar = ipe.parse_matrix(Bstarstr, self.group)
+
+
+        (g1len, g2len) = str.split(gparams, ' ')
+        with open(generator_filename, "rb") as secret_key_file:
+            g1bytes = secret_key_file.read(int(g1len))
+            g2bytes = secret_key_file.read(int(g2len))
+        self.g1 = bytesToObject(g1bytes, self.group)
+        self.g2 = bytesToObject(g2bytes, self.group)
+
+        pp = ()
+        self.B = B
+        self.Bstar = Bstar
+        self.public_parameters = pp
+
+        assert self.g1.initPP(), "ERROR: Failed to init pre-computation table for g1."
+        assert self.g2.initPP(), "ERROR: Failed to init pre-computation table for g2."
+
 
     def encrypt(self, x):
         n = len(x)
