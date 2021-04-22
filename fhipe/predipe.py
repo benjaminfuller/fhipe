@@ -173,6 +173,19 @@ class BarbosaIPEScheme(PredIPEScheme):
         assert self.g1.initPP(), "ERROR: Failed to init pre-computation table for g1."
         assert self.g2.initPP(), "ERROR: Failed to init pre-computation table for g2."
 
+    def fake_encrypt(self, x, beta=None):
+        if not beta:
+            beta = self.group.random(ZR)
+        n = len(x)
+
+        c = [0] * n
+        for j in range(n):
+            sum = 0
+            for i in range(n):
+                sum += x[i] * self.Bstar[i][j]
+            c[j] = beta * sum
+        return c
+
     def encrypt(self, x, beta=None):
         if not beta:
             beta = self.group.random(ZR)
@@ -186,9 +199,21 @@ class BarbosaIPEScheme(PredIPEScheme):
             c[j] = beta * sum
 
         for i in range(n):
-            c[i] = self.g2 ** c[i]
+           c[i] = self.g2 ** c[i]
         return c
 
+    def fake_keygen(self, y, alpha=None):
+        if not alpha:
+            alpha = self.group.random(ZR)
+        n = len(y)
+
+        k = [0] * n
+        for j in range(n):
+            sum = 0
+            for i in range(n):
+                sum += y[i] * self.B[i][j]
+            k[j] = alpha * sum
+        return k
     def keygen(self, y, alpha=None):
         if not alpha:
             alpha = self.group.random(ZR)
