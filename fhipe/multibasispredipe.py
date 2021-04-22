@@ -151,6 +151,7 @@ class MultiBasesPredScheme(PredIPEScheme):
         res = 0
         L = map(lambda i: ct_flat[i]*tk_flat[i], range(len(ct_flat)))
         for i in L:
+            print(type(i))
             res+=i
         print(res)
 
