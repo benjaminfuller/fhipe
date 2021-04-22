@@ -45,7 +45,7 @@ class MultiBasesPredScheme(PredIPEScheme):
         self.num_bases = num_bases
         assert (float(num_bases).is_integer()), "ERROR: Sigma must be an integer."
         assert (num_bases > 0), "ERROR: Sigma must be greater than zero."
-        assert (num_bases < n), "ERROR: Sigma must be lesser or equal to n."
+        assert (num_bases <= n), "ERROR: Sigma must be lesser or equal to n."
         #Revisist whether sigma has to divide n
         assert (n % num_bases == 0), "ERROR: Sigma must divide n."
         self.component_length = ceil(self.vector_length/self.num_bases)+1

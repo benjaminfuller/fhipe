@@ -84,9 +84,9 @@ if __name__ == "__main__":
         tky2 = multi_scheme.keygen(y2)
         ctzero = multi_scheme.encrypt(x2)
 
-        assert (multi_scheme.decrypt(barbosa.getPublicParameters(), ctzero, tky1))
-        assert (not multi_scheme.decrypt(barbosa.getPublicParameters(), ctx, tky2))
-        assert (multi_scheme.decrypt(barbosa.getPublicParameters(), ctx, tky1, group_name))
+        assert (multi_scheme.decrypt(multi_scheme.getPublicParameters(), ctzero, tky1))
+        assert (not multi_scheme.decrypt(multi_scheme.getPublicParameters(), ctx, tky2))
+        assert (multi_scheme.decrypt(multi_scheme.getPublicParameters(), ctx, tky1, group_name))
 
         multi_scheme = multibasispredipe.MultiBasesPredScheme(n=vector_length, group_name=group_name, num_bases=2)
         multi_scheme.generate_keys()
@@ -95,20 +95,10 @@ if __name__ == "__main__":
         tky2 = multi_scheme.keygen(y2)
         ctzero = multi_scheme.encrypt(x2)
 
-        assert (multi_scheme.decrypt(barbosa.getPublicParameters(), ctzero, tky1))
-        assert (not multi_scheme.decrypt(barbosa.getPublicParameters(), ctx, tky2))
-        assert (multi_scheme.decrypt(barbosa.getPublicParameters(), ctx, tky1, group_name))
+        assert (multi_scheme.decrypt(multi_scheme.getPublicParameters(), ctzero, tky1))
+        assert (not multi_scheme.decrypt(multi_scheme.getPublicParameters(), ctx, tky2))
+        assert (multi_scheme.decrypt(multi_scheme.getPublicParameters(), ctx, tky1, group_name))
 
-        multi_scheme = multibasispredipe.MultiBasesPredScheme(n=vector_length, group_name=group_name, num_bases=4)
-        multi_scheme.generate_keys()
-        ctx = multi_scheme.encrypt(x1)
-        tky1 = multi_scheme.keygen(y1)
-        tky2 = multi_scheme.keygen(y2)
-        ctzero = multi_scheme.encrypt(x2)
-
-        assert (multi_scheme.decrypt(barbosa.getPublicParameters(), ctzero, tky1))
-        assert (not multi_scheme.decrypt(barbosa.getPublicParameters(), ctx, tky2))
-        assert (multi_scheme.decrypt(barbosa.getPublicParameters(), ctx, tky1, group_name))
 
 
 
