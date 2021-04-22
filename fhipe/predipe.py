@@ -127,6 +127,16 @@ class BarbosaIPEScheme(PredIPEScheme):
             secret_key_file.write(result_str)
             secret_key_file.close()
 
+    def print_key(self):
+        print("B")
+        print(self.B)
+        print("B star")
+        print(self.Bstar)
+        print("g1")
+        print(self.g1)
+        print("g2")
+        print(self.g2)
+
     def serialize_key(self, matrix_filename, generator_filename):
         open(matrix_filename, 'w').close()
 
@@ -178,6 +188,8 @@ class BarbosaIPEScheme(PredIPEScheme):
             beta = self.group.random(ZR)
         n = len(x)
 
+        print("The value of beta " + str(beta))
+
         c = [0] * n
         for j in range(n):
             sum = 0
@@ -205,6 +217,8 @@ class BarbosaIPEScheme(PredIPEScheme):
     def fake_keygen(self, y, alpha=None):
         if not alpha:
             alpha = self.group.random(ZR)
+
+        print("The value of alpha "+str(alpha))
         n = len(y)
 
         k = [0] * n
@@ -213,6 +227,7 @@ class BarbosaIPEScheme(PredIPEScheme):
             for i in range(n):
                 sum += y[i] * self.B[i][j]
             k[j] = alpha * sum
+
         return k
     def keygen(self, y, alpha=None):
         if not alpha:

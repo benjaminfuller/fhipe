@@ -61,13 +61,20 @@ class MultiBasesPredScheme(PredIPEScheme):
         for i in range(self.num_bases):
             b_instance = BarbosaIPEScheme(self.component_length, self.group_name, self.simulated)
             (B, Bstar, pp) = BarbosaIPEScheme.generate_matrices(self.component_length, self.simulated, self.group)
+            #TODO: make the code work
+            for x in range(self.component_length):
+                for y in range(self.component_length):
+                    B[x][y] = self.group.init(ZR, 1)
+                    Bstar[x][y] = self.group.init(ZR, 1)
+
             b_instance.set_key(B, Bstar, pp, self.g1, self.g2)
             self.barbosa_vec.append(b_instance)
 
-        print("Generated key")
-        print(self.barbosa_vec)
+        #print(self.barbosa_vec[0].print_key())
+        #print(self.barbosa_vec[1].print_key())
 
     def encrypt(self, x):
+        print("Calling encrypt " + str(x))
         assert(len(x) == self.vector_length)
         n = self.vector_length
         # prepare secret sharing of zero
@@ -95,13 +102,14 @@ class MultiBasesPredScheme(PredIPEScheme):
 #            x_modified[self.component_length-1]= zeta[l]
             x_modified[self.component_length-1]= 0
             print("Modified x "+str(x_modified))
-            c.append(self.barbosa_vec[l].fake_encrypt(x_modified, beta=beta))
+            c.append(self.barbosa_vec[l].fake_encrypt(x_modified, beta=1))
         return c
 
     def keygen(self, y):
         """
         Performs the keygen algorithm for IPE.
         """
+        print("Calling Key gen "+str(y))
         assert(len(y) == self.vector_length)
         n = self.vector_length
         tk= []
@@ -115,7 +123,10 @@ class MultiBasesPredScheme(PredIPEScheme):
             #TODO: this is the wrong value
             y_modified[self.component_length-1]= 0
             print("Modified y "+str(y_modified))
-            tk.append(self.barbosa_vec[l].fake_keygen(y_modified, alpha=alpha))
+            tk.append(self.barbosa_vec[l].fake_keygen(y_modified, alpha=1))
+        print("Reprinting keys")
+        print(self.barbosa_vec[0].print_key())
+        print(self.barbosa_vec[1].print_key())
         return tk
 
     def getPublicParameters(self):
