@@ -1,40 +1,69 @@
 
 
-import sys, os, math
+import sys, os, math, argparse
 sys.path.insert(0, os.path.abspath('.'))
 sys.path.insert(1, os.path.abspath('..'))
 
 from fhipe import predipe, prox_search
 
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description='Benchmarking of Proximity Search Schemes.')
+    parser.add_argument('--matrix_file', '-mf', nargs='*', help='The file for the matrices')
+    parser.add_argument('--generator_file', '-gf', nargs='*', help='The file for the group generators')
+    parser.add_argument('--save', '-s', const=1, type=int, nargs='?', default=0,
+                        help='Write a secret key to file and quit')
+    parser.add_argument('--load', '-l', const=1, type=int, nargs='?', default=0,
+                        help='Load secret key from a file')
+    parser.add_argument('--benchmark', '-b', const=1, type=int, nargs='?',
+                        default=0, help='Perform Full benchmarking')
+    parser.add_argument('--vector_length', '-v', const=1, type=int, nargs='?', default=64,
+                        help='Specify the length of vectors for testing')
+    args = vars(parser.parse_args())
+
+    vector_length = args['vector_length']
+
+    group_name = 'MNT159'
+    barbosa = predipe.BarbosaIPEScheme(n=vector_length)
+    database = prox_search.ProximitySearch(vector_length, predipe.BarbosaIPEScheme, group_name)
+
+    if(args['save'] and args['matrix_file'] and args['generator_file']):
+        barbosa.generate_keys()
+        barbosa.serialize_key(args['matrix_file'][0]+'pred', args['generator_file'][0]+'pred')
+
+        database.generate_keys()
+        database.serialize_key(args['matrix_file'][0]+'prox', args['generator_file'][0]+'prox')
 
 
-#Doing some basic testing
-n=4
-group_name='MNT159'
-barbosa = predipe.BarbosaIPEScheme(n, group_name)
+    elif(args['load'] and args['matrix_file'] and args['generator_file']):
+        barbosa.deserialize_key(args['matrix_file'][0]+'pred', args['generator_file'][0]+'pred')
+        database.deserialize_key(args['matrix_file'][0]+'prox', args['generator_file'][0]+'prox')
+    else:
+        barbosa.generate_keys()
+        database.generate_keys()
 
-print("Testing Basic Predicate Functionality")
-x1=[1, -1, -1, 1]
-ctx = barbosa.encrypt(x1)
-y1=[1, 1, 1, 1]
-tky1 = barbosa.keygen(y1)
-tky2 = barbosa.keygen([1,5,1,1])
-x2=[0,0,0,0]
-ctzero = barbosa.encrypt(x2)
-assert(predipe.BarbosaIPEScheme.decrypt(barbosa.getPublicParameters(), ctx, tky1, group_name))
-assert(predipe.BarbosaIPEScheme.decrypt(barbosa.getPublicParameters(), ctzero, tky1))
-assert(not predipe.BarbosaIPEScheme.decrypt(barbosa.getPublicParameters(), ctx, tky2))
-
-
-print("Testing Proximity Search")
-n=4
-group_name='MNT159'
-database = prox_search.ProximitySearch(n, predipe.BarbosaIPEScheme, group_name)
-data = [[0, 1, 0, 1], [1, 0, 1, 0]]
-database.encrypt_dataset(data)
+    print("Testing Basic Predicate Functionality")
+    x1=[1, -1, -1, 1]
+    ctx = barbosa.encrypt(x1)
+    y1=[1, 1, 1, 1]
+    y2=[1, 5, 1, 1]
+    tky1 = barbosa.keygen(y1)
+    tky2 = barbosa.keygen(y2)
+    x2=[0, 0, 0, 0]
+    ctzero = barbosa.encrypt(x2)
+    assert(predipe.BarbosaIPEScheme.decrypt(barbosa.getPublicParameters(), ctzero, tky1))
+    assert(not predipe.BarbosaIPEScheme.decrypt(barbosa.getPublicParameters(), ctx, tky2))
+    assert(predipe.BarbosaIPEScheme.decrypt(barbosa.getPublicParameters(), ctx, tky1, group_name))
 
 
-query = [0,1,0,0]
-encrypted_query = database.generate_query(query, 1)
-relevant_indices = database.search(encrypted_query)
-print("The matches are "+str(relevant_indices))
+    print("Testing Proximity Search")
+    data = [[0, 1, 0, 1], [1, 0, 1, 0]]
+    database.encrypt_dataset(data)
+    query = [0,1,0,0]
+    encrypted_query = database.generate_query(query, 1)
+    relevant_indices = database.search(encrypted_query)
+    assert(len(relevant_indices)==1 and relevant_indices[0] == 0)
+    encrypted_query = database.generate_query(query, 0)
+    relevant_indices = database.search(encrypted_query)
+    assert (len(relevant_indices) == 0)
+
+

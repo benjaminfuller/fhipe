@@ -41,8 +41,20 @@ def match_item(decrypt_method, pub, index, ciphertext, token):
 class ProximitySearch():
     def __init__(self, n, predicate_scheme, group_name='MNT159', simulated=False):
         self.predinstance = predicate_scheme(n + 1, group_name, simulated)
-        self.public_parameters = self.predinstance.getPublicParameters()
+
         self.vector_length = n
+
+    def generate_keys(self):
+        self.predinstance.generate_keys()
+        self.public_parameters = self.predinstance.getPublicParameters()
+
+    def serialize_key(self, matrix_filename, generator_filename):
+        self.predinstance.serialize_key(matrix_filename, generator_filename)
+
+    def deserialize_key(self, matrix_filename, generator_filename):
+        self.predinstance.deserialize_key(matrix_filename, generator_filename)
+        self.public_parameters = self.predinstance.getPublicParameters()
+
 
     def encrypt_dataset(self, data_set):
         for data_item in data_set:
@@ -51,12 +63,12 @@ class ProximitySearch():
 
         self.enc_data = {}
         i = 0
-        print(data_set)
+        #print(data_set)
         for x in data_set:
-            print("Value to encrypt is " + str(x))
+            #print("Value to encrypt is " + str(x))
             x2 = [xi if xi == 1 else -1 for xi in x]
             x2.append(-1)
-            print("Data to encrypt is " + str(x2))
+            #print("Data to encrypt is " + str(x2))
             self.enc_data[i] = self.predinstance.encrypt(x2)
             i = i + 1
 
@@ -68,7 +80,7 @@ class ProximitySearch():
             temp_query.append(self.vector_length - 2 * i)
             query_set.append(temp_query)
 
-        print("Query set is " + str(query_set))
+        #print("Query set is " + str(query_set))
         encrypted_query = []
         while (len(query_set) > 0):
             next_to_encode = secrets.randbelow(len(query_set))
@@ -92,4 +104,4 @@ class ProximitySearch():
                     if res is not None:
                         result_list.append(res)
         return result_list
-    
+
