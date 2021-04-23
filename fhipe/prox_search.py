@@ -49,7 +49,7 @@ class ProximitySearch():
         self.predinstance.deserialize_key(matrix_filename, generator_filename)
         self.public_parameters = self.predinstance.getPublicParameters()
 
-
+    #TODO will need to augment this to store class identifier
     def encrypt_dataset(self, data_set):
         for data_item in data_set:
             if len(data_item) != self.vector_length:
@@ -63,6 +63,7 @@ class ProximitySearch():
             return encrypt_method(x2)
 
         result_list = []
+        #TODO This is not performing as well as I'd like, not sure why.  Same pattern as search
         with Pool(processes=cpu_count()) as p:
             with concurrent.futures.ThreadPoolExecutor(max_workers=cpu_count()) as executor:
                 future_list = {executor.submit(augment_encrypt, self.predinstance.encrypt, x)
@@ -70,7 +71,6 @@ class ProximitySearch():
                                }
                 for future in concurrent.futures.as_completed(future_list):
                     res = future.result()
-                    print(res)
                     if res is not None:
                         self.enc_data[i] = res
                         i = i+1
