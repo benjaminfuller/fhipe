@@ -73,6 +73,7 @@ def bench_prox(n, group_name, dataset, ipescheme, iter=1, t=0, simulated=False):
         print("Done with Key Gen")
 
         encrypt_a = time.time()
+        #TODO: turn this back to whole dataset
         database.encrypt_dataset(dataset)
         encrypt_b = time.time()
         encrypt_time_list.append(encrypt_b - encrypt_a)
@@ -84,12 +85,12 @@ def bench_prox(n, group_name, dataset, ipescheme, iter=1, t=0, simulated=False):
             token_a = time.time()
             token = database.generate_query(dataitem, t)
             token_b = time.time()
-            token_time_list = token_b - token_a
+            token_time_list.append(token_b - token_a)
 
             search_a = time.time()
             indices = database.search(token)
             search_b = time.time()
-            search_time_list = search_b - search_a
+            search_time_list.append(search_b - search_a)
 
             if indices is None:
                 return_size_list.append(0)
@@ -138,8 +139,8 @@ if __name__ == "__main__":
     group_name = 'MNT159'
     vector_length = len(nd_dataset[0])
     print("Benchmarking Notre Dame")
-    bench_prox(n=vector_length, group_name=group_name, dataset=nd_dataset, ipescheme=predipe.BarbosaIPEScheme, iter=1,
+    bench_prox(n=vector_length, group_name=group_name, dataset=nd_dataset, ipescheme=predipe.BarbosaIPEScheme, iter=10,
                t=8, simulated=False)
     print("Benchmarking IITD")
-    # bench_prox(n=vector_length, group_name=group_name, dataset=iitd_dataset, ipescheme=predipe.BarbosaIPEScheme,
-    #            iter=1, t=17, simulated=False)
+    bench_prox(n=vector_length, group_name=group_name, dataset=iitd_dataset, ipescheme=predipe.BarbosaIPEScheme,
+               iter=1, t=17, simulated=False)

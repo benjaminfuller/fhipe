@@ -127,11 +127,12 @@ class ProximitySearch():
 
     def search(self, query):
         result_list = []
-        index = None
+
         for x in self.enc_data:
-            for subquery in token:
-                if self.predinstance.decrypt(pub, self.enc_data, subquery):
-                    return index
+            index = None
+            for subquery in query:
+                if self.predinstance.decrypt(self.predinstance.getPublicParameters(), self.enc_data[x], subquery):
+                    index = x
                     break
             if index is not None:
                 result_list.append(index)
