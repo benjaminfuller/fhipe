@@ -50,7 +50,7 @@ class ProximitySearch():
         self.public_parameters = self.predinstance.getPublicParameters()
 
     #TODO will need to augment this to store class identifier
-    def encrypt_dataset(self, data_set):
+    def encrypt_dataset_parallel(self, data_set):
         for data_item in data_set:
             if len(data_item) != self.vector_length:
                 raise ValueError("Improper Vector Size")
@@ -75,6 +75,18 @@ class ProximitySearch():
                         self.enc_data[i] = res
                         i = i+1
 
+    def encrypt_dataset(self, data_set):
+        for data_item in data_set:
+            if len(data_item) != self.vector_length:
+                raise ValueError("Improper Vector Size")
+        self.enc_data = {}
+        i = 0
+
+        for x in data_set:
+            x2 = [xi if xi == 1 else -1 for xi in x]
+            x2.append(-1)
+            self.enc_data[i] = self.predinstance.encrypt(x2)
+            i = i+1
 
     def generate_query(self, query, distance):
         encoded_query = [xi if xi == 1 else -1 for xi in query]
@@ -92,7 +104,7 @@ class ProximitySearch():
             query_set.remove(query_set[next_to_encode])
         return encrypted_query
 
-    def search(self, query):
+    def search_parallel(self, query):
         def match_item(decrypt_method, pub, index, ciphertext, token):
             for subquery in token:
                 if decrypt_method(pub, ciphertext, subquery):
@@ -111,6 +123,18 @@ class ProximitySearch():
                     res = future.result()
                     if res is not None:
                         result_list.append(res)
+        return result_list
+
+    def search(self, query):
+        result_list = []
+        index = None
+        for x in self.enc_data:
+            for subquery in token:
+                if self.predinstance.decrypt(pub, self.enc_data, subquery):
+                    return index
+                    break
+            if index is not None:
+                result_list.append(index)
         return result_list
 
     @staticmethod

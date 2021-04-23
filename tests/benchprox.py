@@ -70,6 +70,8 @@ def bench_prox(n, group_name, dataset, ipescheme, iter=1, t=0, simulated=False):
         keygen_b = time.time()
         keygen_time_list.append(keygen_b - keygen_a)
 
+        print("Done with Key Gen")
+
         encrypt_a = time.time()
         database.encrypt_dataset(dataset)
         encrypt_b = time.time()
@@ -77,6 +79,7 @@ def bench_prox(n, group_name, dataset, ipescheme, iter=1, t=0, simulated=False):
 
         sk_size.append(database.get_seckey_size())
         encdb_size.append(database.get_database_size())
+        print("Starting DB Querying")
         for dataitem in dataset:
             token_a = time.time()
             token = database.generate_query(dataitem, t)
@@ -138,5 +141,5 @@ if __name__ == "__main__":
     bench_prox(n=vector_length, group_name=group_name, dataset=nd_dataset, ipescheme=predipe.BarbosaIPEScheme, iter=1,
                t=8, simulated=False)
     print("Benchmarking IITD")
-    bench_prox(n=vector_length, group_name=group_name, dataset=iitd_dataset, ipescheme=predipe.BarbosaIPEScheme,
-               iter=1, t=17, simulated=False)
+    # bench_prox(n=vector_length, group_name=group_name, dataset=iitd_dataset, ipescheme=predipe.BarbosaIPEScheme,
+    #            iter=1, t=17, simulated=False)
