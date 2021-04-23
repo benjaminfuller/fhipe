@@ -59,6 +59,8 @@ if __name__ == "__main__":
         print("Testing Proximity Search")
         data = [[0, 1, 0, 1], [1, 0, 1, 0]]
         database.encrypt_dataset(data)
+        print("Size of DB "+str(database.get_database_size()))
+        print("Size of Secret Key "+str(database.get_seckey_size()))
         query = [0,1,0,0]
         encrypted_query = database.generate_query(query, 1)
         assert(len(encrypted_query)==2)
@@ -68,6 +70,7 @@ if __name__ == "__main__":
         assert (len(encrypted_query) == 1)
         relevant_indices = database.search(encrypted_query)
         assert (len(relevant_indices) == 0)
+
 
 
         print("Testing multi basis scheme")

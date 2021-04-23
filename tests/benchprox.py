@@ -26,52 +26,52 @@ sys.path.insert(1, os.path.abspath('..'))
 
 import random, time, zlib
 from fhipe import predipe, prox_search, multibasispredipe
+from statistics import pstdev
 
-def list_tuple_mean(L):
-  avgs = [0] * len(L[0])
-  for tup in L:
-    for i in range(len(tup)):
-      avgs[i] += tup[i]
-  for i in range(len(avgs)):
-    avgs[i] /= len(L)
-  return avgs
 
-def bench_prox(n, group_name, iter = 10, simulated = False):
-  setup_a = time.time()
-  (pp, sk) = ipe.setup(n, group_name, simulated)
-  setup_b = time.time()
+def list_average(L):
+  return sum(L)/len(L)
+
+
+def bench_prox(n, group_name, dataset, ipescheme, iter = 1, max_t = 0, simulated = False):
+  setup_time_list = []
+  keygen_time_list = []
+  encrypt_time_list = []
+  sk_size = []
+  encdb_size = []
+  for i in range(iter):
+    setup_a = time.time()
+    database = prox_search.ProximitySearch(vector_length, ipescheme, group_name)
+    setup_b = time.time()
+    setup_time_list.append(setup_b-setup_a)
+
+    keygen_a = time.time()
+    database.generate_keys()
+    keygen_b = time.time()
+    keygen_time_list.append(keygen_b-keygen_a)
+
+    encrypt_a = time.time()
+    database.encrypt_dataset(dataset)
+    encrypt_b = time.time()
+    encrypt_time_list.append(encrypt_b-encrypt_a)
+
+    sk_size.append(database.get_seckey_size())
+    encdb_size.append(database.get_database_size())
 
 
  
-  L = []
-  for index in range(iter):
-    x = [random.randint(0, M) for i in range(n)]
-    y = [random.randint(0, M) for i in range(n)]
-   
-    keygen_a = time.time()
-    skx = ipe.keygen(sk, x)
-    keygen_b = time.time()
-    
-    encrypt_a = time.time()
-    cty = ipe.encrypt(sk, y)
-    encrypt_b = time.time()
-
-    ctsize = get_ct_size(cty)
-
-    decrypt_a = time.time()
-    prod = ipe.decrypt(pp, skx, cty, M*M*n)
-    decrypt_b = time.time()
-
-    L.append((keygen_b - keygen_a, encrypt_b - encrypt_a, decrypt_b - decrypt_a, 
-        ctsize))
-  print("raw runtimes for each iteration: ", L)
-
-  return (setup_b - setup_a, list_tuple_mean(L))
+  print("Time to setup, avg "+str(list_average(setup_time_list))+" stdev "+str(pstdev(setup_time_list)))
+  print("Time to keygen, avg "+str(list_average(keygen_time_list))+" stdev "+str(pstdev(keygen_time_list)))
+  print("Time to encrypt "+str(len(dataset))+" records, avg " + str(list_average(encrypt_time_list)) +
+        " stdev " + str(pstdev(encrypt_time_list)))
+  print("Size of secret key " + str(list_average(sk_size)) + " stdev " + str(pstdev(sk_size)))
+  print("Size of encrypted data " + str(list_average(encdb_size)) + " stdev " + str(pstdev(encdb_size)))
 
 def read_fvector(filePath):
   with open(filePath) as f:
     for line in f.readlines():
-      return np.fromstring(line, sep=",")
+      temp_str = np.fromstring(line, sep=",")
+      return [int(x) for x in temp_str]
 
 
 
@@ -79,25 +79,20 @@ def process_dataset():
   cwd = os.getcwd()
   feat_list = glob.glob(cwd + "//features//ND_proximity_irisR_features//*")
   f_1 = read_fvector(feat_list[0])
-
-  print("Notre Dame 0405:")
-  print ("Number of features: " + str(len(feat_list)))
-
-  print ("Vector dimensions: " + str(len(f_1)))
-
-  print ("Example feature vector: " + str(f_1))
-
   cwd = os.getcwd()
   feat_list = glob.glob(cwd + "//features//IITD_proximity_irisR_features//*")
-  f_1 = read_fvector(feat_list[0])
-  print("IITD:")
-
-  print ("Number of features: " + str(len(feat_list)))
-
-  print ("Vector dimensions: " + str(len(f_1)))
-
-  print ("Example feature vector: " + str(f_1))
+  nd_dataset = [read_fvector(x) for x in feat_list]
+  iitd_dataset = [read_fvector(x) for x in feat_list]
+  return (nd_dataset, iitd_dataset)
 
 
 if __name__ == "__main__":
-  process_dataset()
+  (nd_dataset, iitd_dataset) = process_dataset()
+  group_name = 'MNT159'
+  vector_length = len(nd_dataset[0])
+  print("Benchmarking Notre Dame")
+  bench_prox(n=vector_length, group_name=group_name, dataset=nd_dataset, ipescheme=predipe.BarbosaIPEScheme, iter=10,
+             max_t = 7, simulated=False)
+  print("Benchmarking IITD")
+  bench_prox(n=vector_length, group_name=group_name, dataset=iitd_dataset, ipescheme=predipe.BarbosaIPEScheme, iter=10,
+             max_t=7, simulated=False)
