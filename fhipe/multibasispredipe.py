@@ -103,8 +103,8 @@ class MultiBasesPredScheme(PredIPEScheme):
             for j in range(self.component_length-1):
                 x_modified[j] = x[l*int(n/self.num_bases)+j]
             #TODO: disabling secret sharing for debugging
-#            x_modified[self.component_length-1]= zeta[l]
-            x_modified[self.component_length-1]= 0
+            x_modified[self.component_length-1]= zeta[l]
+#            x_modified[self.component_length-1]= 0
             print("Modified x "+str(x_modified))
             c.append(self.barbosa_vec[l].fake_encrypt(x_modified, beta=1))
         return c
