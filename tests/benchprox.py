@@ -33,7 +33,7 @@ def list_average(L):
   return sum(L)/len(L)
 
 
-def bench_prox(n, group_name, dataset, ipescheme, iter = 1, max_t = 0, simulated = False):
+def bench_prox(n, group_name, dataset, ipescheme, iter = 1, t = 0, simulated = False):
   setup_time_list = []
   keygen_time_list = []
   encrypt_time_list = []
@@ -67,6 +67,15 @@ def bench_prox(n, group_name, dataset, ipescheme, iter = 1, max_t = 0, simulated
   print("Size of secret key " + str(list_average(sk_size)) + " stdev " + str(pstdev(sk_size)))
   print("Size of encrypted data " + str(list_average(encdb_size)) + " stdev " + str(pstdev(encdb_size)))
 
+
+def accuracy_prox(n, group_name, dataset, ipescheme, iter = 1, max_t = 0, simulated = False):
+  database = prox_search.ProximitySearch(vector_length, ipescheme, group_name)
+  database.generate_keys()
+
+  #TODO:Add accuracy testing
+  #TODO: Vary t to check accuracy, need to make sure returned value is in same class.
+
+
 def read_fvector(filePath):
   with open(filePath) as f:
     for line in f.readlines():
@@ -78,11 +87,10 @@ def read_fvector(filePath):
 def process_dataset():
   cwd = os.getcwd()
   feat_list = glob.glob(cwd + "//features//ND_proximity_irisR_features//*")
-  f_1 = read_fvector(feat_list[0])
-  cwd = os.getcwd()
-  feat_list = glob.glob(cwd + "//features//IITD_proximity_irisR_features//*")
   nd_dataset = [read_fvector(x) for x in feat_list]
+  feat_list = glob.glob(cwd + "//features//IITD_proximity_irisR_features//*")
   iitd_dataset = [read_fvector(x) for x in feat_list]
+  
   return (nd_dataset, iitd_dataset)
 
 
