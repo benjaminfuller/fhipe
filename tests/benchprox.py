@@ -139,7 +139,7 @@ if __name__ == "__main__":
     group_name = 'MNT159'
     vector_length = len(nd_dataset[0])
     print("Benchmarking Notre Dame")
-    bench_prox(n=vector_length, group_name=group_name, dataset=nd_dataset, ipescheme=predipe.BarbosaIPEScheme, iter=10,
+    bench_prox(n=vector_length, group_name=group_name, dataset=nd_dataset, ipescheme=predipe.BarbosaIPEScheme, iter=1,
                t=8, simulated=False)
     print("Benchmarking IITD")
     bench_prox(n=vector_length, group_name=group_name, dataset=iitd_dataset, ipescheme=predipe.BarbosaIPEScheme,
