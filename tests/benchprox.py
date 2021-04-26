@@ -20,7 +20,7 @@ two-input functional encryption.
 """
 
 # Path hack.
-import sys, os, math, glob, numpy as np
+import sys, os, math, glob, numpy as np, argparse
 
 sys.path.insert(0, os.path.abspath('.'))
 sys.path.insert(1, os.path.abspath('..'))
@@ -50,7 +50,7 @@ def get_ct_size(ct):
     return ct_sizeinbytes
 
 
-def bench_prox(n, group_name, dataset, ipescheme, iter=1, t=0, simulated=False):
+def bench_prox(n, group_name, dataset, ipescheme, iter=1, t=0, matrix_file=None, gen_file=None, simulated=False):
     setup_time_list = []
     keygen_time_list = []
     encrypt_time_list = []
@@ -66,14 +66,17 @@ def bench_prox(n, group_name, dataset, ipescheme, iter=1, t=0, simulated=False):
         setup_time_list.append(setup_b - setup_a)
 
         keygen_a = time.time()
-        database.generate_keys()
+        if (matrix_file is not None and gen_file is not None):
+            database.deserialize_key(matrix_file, gen_file)
+        else:
+            database.generate_keys()
         keygen_b = time.time()
         keygen_time_list.append(keygen_b - keygen_a)
 
         print("Done with Key Gen")
 
         encrypt_a = time.time()
-        #TODO: turn this back to whole dataset
+        # TODO: turn this back to whole dataset
         database.encrypt_dataset(dataset)
         encrypt_b = time.time()
         encrypt_time_list.append(encrypt_b - encrypt_a)
@@ -81,6 +84,7 @@ def bench_prox(n, group_name, dataset, ipescheme, iter=1, t=0, simulated=False):
         sk_size.append(database.get_seckey_size())
         encdb_size.append(database.get_database_size())
         print("Starting DB Querying")
+        i = 0
         for dataitem in dataset:
             token_a = time.time()
             token = database.generate_query(dataitem, t)
@@ -92,11 +96,21 @@ def bench_prox(n, group_name, dataset, ipescheme, iter=1, t=0, simulated=False):
             search_b = time.time()
             search_time_list.append(search_b - search_a)
 
+
             if indices is None:
                 return_size_list.append(0)
             else:
                 return_size_list.append(len(indices))
-            #TODO: add size of token
+                print("Matches for query "+str(i)+" "+str(len(indices)))
+            # TODO: add size of token
+
+
+            print("Time to create token, avg " + str(list_average(token_time_list)) + " stdev " + str(
+                pstdev(token_time_list)))
+            print("Time to search, avg " + str(list_average(search_time_list)) + " stdev " + str(
+                pstdev(search_time_list)))
+
+            i = i + 1
 
     print("Time to setup, avg " + str(list_average(setup_time_list)) + " stdev " + str(pstdev(setup_time_list)))
     print("Time to keygen, avg " + str(list_average(keygen_time_list)) + " stdev " + str(pstdev(keygen_time_list)))
@@ -135,12 +149,30 @@ def process_dataset():
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description='Benchmarking of Proximity Search Schemes.')
+    parser.add_argument('--matrix_file', '-mf', nargs='*', help='The file for the matrices')
+    parser.add_argument('--generator_file', '-gf', nargs='*', help='The file for the group generators')
+    parser.add_argument('--save', '-s', const=1, type=int, nargs='?', default=0,
+                        help='Write a secret key to file and quit')
+    parser.add_argument('--load', '-l', const=1, type=int, nargs='?', default=0,
+                        help='Load secret key from a file')
+    parser.add_argument('--benchmark', '-b', const=1, type=int, nargs='?',
+                        default=0, help='Perform Full benchmarking')
+    parser.add_argument('--vector_length', '-v', const=1, type=int, nargs='?', default=64,
+                        help='Specify the length of vectors for testing')
+    args = vars(parser.parse_args())
+
+    matrix_file = None
+    gen_file = None
+    if (args['matrix_file'] and args['generator_file']):
+        matrix_file = args['matrix_file'][0]
+        gen_file = args['generator_file'][0]
     (nd_dataset, iitd_dataset) = process_dataset()
     group_name = 'MNT159'
     vector_length = len(nd_dataset[0])
     print("Benchmarking Notre Dame")
     bench_prox(n=vector_length, group_name=group_name, dataset=nd_dataset, ipescheme=predipe.BarbosaIPEScheme, iter=1,
-               t=8, simulated=False)
+               t=8, matrix_file=matrix_file, gen_file=gen_file, simulated=False)
     print("Benchmarking IITD")
     bench_prox(n=vector_length, group_name=group_name, dataset=iitd_dataset, ipescheme=predipe.BarbosaIPEScheme,
-               iter=1, t=17, simulated=False)
+               iter=1, t=17, matrix_file=matrix_file, gen_file=gen_file, simulated=False)
