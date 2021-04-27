@@ -90,14 +90,16 @@ class BarbosaIPEScheme(PredIPEScheme):
             ],
             stdout=PIPE
         )
-        _ = proc.stdout.readline().decode()
+        detB_str = proc.stdout.readline().decode()
         B_str = proc.stdout.readline().decode()
         Bstar_str = proc.stdout.readline().decode()
+
+        detB = group.init(ZR, int(detB_str))
         B = ipe.parse_matrix(B_str, group)
         Bstar = ipe.parse_matrix(Bstar_str, group)
 
         pp = ()
-        return B, Bstar, pp
+        return B, Bstar, pp, detB
 
     def set_key(self, B, Bstar, pp, g1, g2):
         self.B = B

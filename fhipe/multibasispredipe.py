@@ -34,7 +34,7 @@ from charm.core.engine.util import objectToBytes,bytesToObject
 
 class MultiBasesPredScheme(PredIPEScheme):
 
-    def __init__(self, n, group_name = 'MNT159', num_bases = 1, simulated = False):
+    def __init__(self, n, group_name='MNT159', num_bases=1, simulated=False):
         group = PairingGroup(group_name)
         self.group = group
         self.group_name = group_name
@@ -42,78 +42,75 @@ class MultiBasesPredScheme(PredIPEScheme):
         self.simulated = simulated
         self.g1 = None
         self.g2 = None
+
         self.num_bases = num_bases
         assert (float(num_bases).is_integer()), "ERROR: Sigma must be an integer."
         assert (num_bases > 0), "ERROR: Sigma must be greater than zero."
         assert (num_bases <= n), "ERROR: Sigma must be lesser or equal to n."
-        #Revisist whether sigma has to divide n
+
+        # TODO Revisist whether sigma has to divide n
         assert (n % num_bases == 0), "ERROR: Sigma must divide n."
-        self.component_length = ceil(self.vector_length/self.num_bases)+1
-        self.barbosa_vec=[]
+        self.component_length = ceil(self.vector_length/self.num_bases) + 1
 
-        print("sigma = " + str(self.num_bases))
-
+        self.barbosa_vec = []
+        # print("sigma = " + str(self.num_bases))
 
     def generate_keys(self):
         self.g1 = self.group.random(G1)
         self.g2 = self.group.random(G2)
-
-        self.barbosa_vec=[]
+        self.barbosa_vec = []
 
         for i in range(self.num_bases):
             b_instance = BarbosaIPEScheme(self.component_length, self.group_name, self.simulated)
-            (B, Bstar, pp) = BarbosaIPEScheme.generate_matrices(self.component_length, self.simulated, self.group)
-            #TODO: make the code work
-            for x in range(self.component_length):
-                for y in range(self.component_length):
-                    if(x==y):
-                        B[x][y] = self.group.init(ZR, 1)
-                        Bstar[x][y] = self.group.init(ZR, 1)
-                    else:
-                        B[x][y] = self.group.init(ZR, 0)
-                        Bstar[x][y] = self.group.init(ZR, 0)
+            (B, Bstar, pp, detB) = BarbosaIPEScheme.generate_matrices(self.component_length, self.simulated, self.group)
+
+            # divide Bstar by detB inverse (to have Bstar * B = I)
+            for j in range(int(self.component_length)):
+                for k in range(int(self.component_length)):
+                    Bstar[j][k] = Bstar[j][k] * (1/detB)
 
             b_instance.set_key(B, Bstar, pp, self.g1, self.g2)
             self.barbosa_vec.append(b_instance)
 
-        #print(self.barbosa_vec[0].print_key())
-        #print(self.barbosa_vec[1].print_key())
+            print("Basis " + str(i) + " : ")
+            print(self.barbosa_vec[i].print_key())
 
     def encrypt(self, x):
         print("Calling encrypt " + str(x))
         assert(len(x) == self.vector_length)
         n = self.vector_length
+
         # prepare secret sharing of zero
         zeta = []
         zeta_sigma = self.group.init(ZR, 0)
 
-        for l in range(self.num_bases - 1):
+        for i in range(self.num_bases - 1):
             zeta.append(self.group.random(ZR))
-            zeta_sigma += zeta[l]
+            zeta_sigma += zeta[i]
         zeta.append(zeta_sigma * (-1))
         zeta_sum = self.group.init(ZR, 0)
 
-        print("zeta = ")
+        # print("zeta = ")
         for z in zeta:
-            print(z)
-            zeta_sum+=z
+            # print(z)
+            zeta_sum += z
         assert(zeta_sum == self.group.init(ZR, 0))
 
         c = []
         beta = self.group.random(ZR)
 
-        for l in range(self.num_bases):
+        for i in range(self.num_bases):
 
             x_modified = [0] * self.component_length
-
             for j in range(self.component_length-1):
-                x_modified[j] = x[l*int(n/self.num_bases)+j]
+                x_modified[j] = x[i*int(n/self.num_bases)+j]
 
             #TODO: disabling secret sharing for debugging
-            x_modified[self.component_length-1]= zeta[l]
+            x_modified[self.component_length-1]= zeta[i]
 #            x_modified[self.component_length-1]= 0
-            print("Modified x " + str(x_modified))
-            c.append(self.barbosa_vec[l].fake_encrypt(x_modified, beta))
+#             print("Modified x " + str(x_modified))
+            # c.append(self.barbosa_vec[i].fake_encrypt(x_modified, beta))
+            c.append(self.barbosa_vec[i].encrypt(x_modified, beta))
         return c
 
     def keygen(self, y):
@@ -123,27 +120,28 @@ class MultiBasesPredScheme(PredIPEScheme):
         print("Calling Key gen "+str(y))
         assert(len(y) == self.vector_length)
         n = self.vector_length
-        tk= []
+        tk = []
 
         alpha = self.group.random(ZR)
-        for l in range(self.num_bases):
+        for i in range(self.num_bases):
 
             y_modified = [0] * self.component_length
             for j in range(self.component_length-1):
-                y_modified[j] = y[l*int(n/self.num_bases)+j]
+                y_modified[j] = y[i*int(n/self.num_bases)+j]
             #TODO: this is the wrong value
             y_modified[self.component_length-1]= -1
-            print("Modified y " + str(y_modified))
-            tk.append(self.barbosa_vec[l].fake_keygen(y_modified, alpha))
+            # print("Modified y " + str(y_modified))
+            # tk.append(self.barbosa_vec[i].fake_keygen(y_modified, alpha))
+            tk.append(self.barbosa_vec[i].keygen(y_modified, alpha))
 
-        print("Reprinting keys")
-        for l in range(self.num_bases):
-            print("Basis " + str(l) + " : ")
-            print(self.barbosa_vec[l].print_key())
+        # print("Reprinting keys")
+        # for i in range(self.num_bases):
+        #     print("Basis " + str(i) + " : ")
+        #     print(self.barbosa_vec[i].print_key())
         return tk
 
     def getPublicParameters(self):
-        a =[]
+        a = []
         for x in self.barbosa_vec:
             a.append(x.getPublicParameters())
         return a
@@ -155,34 +153,9 @@ class MultiBasesPredScheme(PredIPEScheme):
         The output is the inner product <x,y>, so long as it is in the range
         [0,max_innerprod].
         """
-        ct_flat =  [item for subl in ct for item in subl]
-        print("Flat ciphertext "+str(len(ct_flat))+" "+str(ct_flat))
-        tk_flat =  [item for subl in tk for item in subl]
-        print("Flat token "+str(len(tk_flat))+" "+str(tk_flat))
-        return BarbosaIPEScheme.decrypt(public_params[0], ct_flat,tk_flat)
-
-    @staticmethod
-    def fake_decrypt(public_params, ct, tk, group_name='MNT159') -> bool:
-        """
-        Performs the decrypt algorithm for IPE on a secret key skx and ciphertext cty.
-        The output is the inner product <x,y>, so long as it is in the range
-        [0,max_innerprod].
-        """
         ct_flat = [item for subl in ct for item in subl]
-        print("Flat ciphertext " + str(len(ct_flat)) + " " + str(ct_flat))
+        # print("Flat ciphertext " + str(len(ct_flat)) + " " + str(ct_flat))
         tk_flat = [item for subl in tk for item in subl]
-        print("Flat token " + str(len(tk_flat)) + " " + str(tk_flat))
-        res = 0
-        L = map(lambda i: ct_flat[i] * tk_flat[i], range(len(ct_flat)))
-        print("sum = ")
-        for i in L:
-            print(i)
-            res += i
-
-        print("res = " + str(res))
-        print(PairingGroup(group_name).init(ZR, 0))
-        print(res == PairingGroup(group_name).init(ZR, 0))
-        return res == PairingGroup(group_name).init(ZR, 0)
-
-
+        # print("Flat token " + str(len(tk_flat)) + " " + str(tk_flat))
+        return BarbosaIPEScheme.decrypt(public_params[0], ct_flat, tk_flat)
 
