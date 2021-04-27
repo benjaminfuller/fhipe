@@ -108,11 +108,17 @@ class BarbosaIPEScheme(PredIPEScheme):
         self.g1 = g1
         self.g2 = g2
 
-        assert self.g1.initPP(), "ERROR: Failed to init pre-computation table for g1."
-        assert self.g2.initPP(), "ERROR: Failed to init pre-computation table for g2."
+        # TODO: not sure if try/except is right solution here ...
+        try:
+            self.g1.initPP()
+            self.g2.initPP()
+        except ValueError as e:
+            print("ValueError : " + str(e))
+        # assert self.g1.initPP(), "ERROR: Failed to init pre-computation table for g1."
+        # assert self.g2.initPP(), "ERROR: Failed to init pre-computation table for g2."
 
     def generate_keys(self):
-        (self.B, self.Bstar, self.public_parameters) =self.generate_matrices(self.vector_length, self.simulated, self.group)
+        (self.B, self.Bstar, self.public_parameters, detB) =self.generate_matrices(self.vector_length, self.simulated, self.group)
         self.g1 = self.group.random(G1)
         self.g2 = self.group.random(G2)
 
