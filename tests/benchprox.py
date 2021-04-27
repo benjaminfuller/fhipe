@@ -50,15 +50,11 @@ def get_ct_size(ct):
     return ct_sizeinbytes
 
 
-def bench_prox(n, group_name, dataset, ipescheme, iter=1, t=0, matrix_file=None, gen_file=None, simulated=False):
+def bench_keygen(n, group_name, ipescheme, iter=1, matrix_file=None, gen_file=None, simulated=False,
+                 save_keys=False):
     setup_time_list = []
     keygen_time_list = []
-    encrypt_time_list = []
-    sk_size = []
-    encdb_size = []
-    token_time_list = []
-    search_time_list = []
-    return_size_list = []
+    database = None
     for i in range(iter):
         setup_a = time.time()
         database = prox_search.ProximitySearch(vector_length, ipescheme, group_name)
@@ -66,26 +62,39 @@ def bench_prox(n, group_name, dataset, ipescheme, iter=1, t=0, matrix_file=None,
         setup_time_list.append(setup_b - setup_a)
 
         keygen_a = time.time()
-        if (matrix_file is not None and gen_file is not None):
-            database.deserialize_key(matrix_file, gen_file)
-        else:
-            database.generate_keys()
+        database.generate_keys()
         keygen_b = time.time()
         keygen_time_list.append(keygen_b - keygen_a)
+    print("Time to setup, avg " + str(list_average(setup_time_list)) + " stdev " + str(pstdev(setup_time_list)))
+    print("Time to keygen, avg " + str(list_average(keygen_time_list)) + " stdev " + str(pstdev(keygen_time_list)))
+    if matrix_file is not None and gen_file is not None and save_keys:
+        database.serialize_key(matrix_file, gen_file)
+    return database
 
-        print("Done with Key Gen")
 
+def bench_enc_data(n, database, dataset, iter=1):
+    encdb_size = []
+    encrypt_time_list = []
+    for i in range(iter):
         encrypt_a = time.time()
-        # TODO: turn this back to whole dataset
         database.encrypt_dataset(dataset)
         encrypt_b = time.time()
         encrypt_time_list.append(encrypt_b - encrypt_a)
-
-        sk_size.append(database.get_seckey_size())
         encdb_size.append(database.get_database_size())
-        print("Starting DB Querying")
-        i = 0
-        for dataitem in dataset:
+    print("Time to encrypt " + str(len(dataset)) + " records, avg " + str(list_average(encrypt_time_list)) +
+          " stdev " + str(pstdev(encrypt_time_list)))
+    print("Size of encrypted data " + str(list_average(encdb_size)) + " stdev " + str(pstdev(encdb_size)))
+
+
+def bench_queries(n, database, queryset, iter=1, t=0):
+    sk_size = []
+    token_time_list = []
+    search_time_list = []
+    return_size_list = []
+    for i in range(iter):
+        sk_size.append(database.get_seckey_size())
+        j = 0
+        for dataitem in queryset:
             token_a = time.time()
             token = database.generate_query(dataitem, t)
             token_b = time.time()
@@ -96,28 +105,20 @@ def bench_prox(n, group_name, dataset, ipescheme, iter=1, t=0, matrix_file=None,
             search_b = time.time()
             search_time_list.append(search_b - search_a)
 
-
             if indices is None:
                 return_size_list.append(0)
             else:
                 return_size_list.append(len(indices))
-                print("Matches for query "+str(i)+" "+str(len(indices)))
+                print("Matches for query " + str(i) + " " + str(len(indices)))
             # TODO: add size of token
-
 
             print("Time to create token, avg " + str(list_average(token_time_list)) + " stdev " + str(
                 pstdev(token_time_list)))
             print("Time to search, avg " + str(list_average(search_time_list)) + " stdev " + str(
                 pstdev(search_time_list)))
+            j = j + 1
 
-            i = i + 1
-
-    print("Time to setup, avg " + str(list_average(setup_time_list)) + " stdev " + str(pstdev(setup_time_list)))
-    print("Time to keygen, avg " + str(list_average(keygen_time_list)) + " stdev " + str(pstdev(keygen_time_list)))
-    print("Time to encrypt " + str(len(dataset)) + " records, avg " + str(list_average(encrypt_time_list)) +
-          " stdev " + str(pstdev(encrypt_time_list)))
     print("Size of secret key " + str(list_average(sk_size)) + " stdev " + str(pstdev(sk_size)))
-    print("Size of encrypted data " + str(list_average(encdb_size)) + " stdev " + str(pstdev(encdb_size)))
     print("Time to create token, avg " + str(list_average(token_time_list)) + " stdev " + str(pstdev(token_time_list)))
     print("Time to search, avg " + str(list_average(search_time_list)) + " stdev " + str(pstdev(search_time_list)))
     print("Number of results, avg " + str(list_average(return_size_list)) + " stdev " + str(pstdev(return_size_list)))
@@ -155,24 +156,48 @@ if __name__ == "__main__":
     parser.add_argument('--save', '-s', const=1, type=int, nargs='?', default=0,
                         help='Write a secret key to file and quit')
     parser.add_argument('--load', '-l', const=1, type=int, nargs='?', default=0,
-                        help='Load secret key from a file')
-    parser.add_argument('--benchmark', '-b', const=1, type=int, nargs='?',
-                        default=0, help='Perform Full benchmarking')
-    parser.add_argument('--vector_length', '-v', const=1, type=int, nargs='?', default=64,
-                        help='Specify the length of vectors for testing')
+                        help='Load Secret Key from File')
+    parser.add_argument('--benchmark_queries', '-bq', const=1, type=int, nargs='?',
+                        default=0, help='Benchmark Query Time and Accuracy')
+    parser.add_argument('--benchmark_key_gen', '-bk', const=1, type=int, nargs='?',
+                        default=0, help='Benchmark Key Generation')
+    parser.add_argument('--benchmark_enc', '-be', const=1, type=int, nargs='?',
+                        default=0, help='Benchmark Dataset encryption')
     args = vars(parser.parse_args())
 
     matrix_file = None
     gen_file = None
-    if (args['matrix_file'] and args['generator_file']):
-        matrix_file = args['matrix_file'][0]
-        gen_file = args['generator_file'][0]
+
     (nd_dataset, iitd_dataset) = process_dataset()
     group_name = 'MNT159'
     vector_length = len(nd_dataset[0])
-    print("Benchmarking Notre Dame")
-    bench_prox(n=vector_length, group_name=group_name, dataset=nd_dataset, ipescheme=predipe.BarbosaIPEScheme, iter=1,
-               t=8, matrix_file=matrix_file, gen_file=gen_file, simulated=False)
-    print("Benchmarking IITD")
-    bench_prox(n=vector_length, group_name=group_name, dataset=iitd_dataset, ipescheme=predipe.BarbosaIPEScheme,
-               iter=1, t=17, matrix_file=matrix_file, gen_file=gen_file, simulated=False)
+
+    if args['matrix_file'] and args['generator_file']:
+        matrix_file = args['matrix_file'][0]
+        gen_file = args['generator_file'][0]
+
+    save = False
+    database = None
+    if args['save']:
+        save = True
+    if args['benchmark_key_gen']:
+        print("Benchmarking Key Generation")
+        database = bench_keygen(n=vector_length, group_name=group_name, ipescheme=predipe.BarbosaIPEScheme, iter=10,
+                                matrix_file=matrix_file, gen_file=gen_file, save_keys=save)
+
+    if args['load'] and args['matrix_file'] and args['generator_file']:
+        database = prox_search.ProximitySearch(vector_length, predipe.BarbosaIPEScheme, group_name)
+        database.deserialize_key(matrix_file, gen_file)
+    if args['benchmark_enc']:
+        if database is None:
+            database = prox_search.ProximitySearch(vector_length, predipe.BarbosaIPEScheme, group_name)
+            database.generate_keys()
+        bench_enc_data(n=vector_length, database=database, dataset=nd_dataset, iter=10)
+
+    if args['benchmark_queries']:
+        if database is None:
+            database = prox_search.ProximitySearch(vector_length, predipe.BarbosaIPEScheme, group_name)
+            database.generate_keys()
+            database.enc_data(nd_dataset)
+        print("Benchmarking Query Time")
+        bench_queries(n=vector_length,queryset=nd_dataset[:5],iter=5, t=8)
