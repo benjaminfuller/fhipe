@@ -34,7 +34,7 @@ from charm.core.engine.util import objectToBytes,bytesToObject
 
 class MultiBasesPredScheme(PredIPEScheme):
 
-    def __init__(self, n, group_name='MNT159', num_bases=1, simulated=False):
+    def __init__(self, n, group_name='MNT159', simulated=False, num_bases=1):
         group = PairingGroup(group_name)
         self.group = group
         self.group_name = group_name
@@ -43,16 +43,17 @@ class MultiBasesPredScheme(PredIPEScheme):
         self.g1 = None
         self.g2 = None
 
-        self.num_bases = num_bases
+        self.component_length = 0
+        self.num_bases = 0
+        self.set_number_bases(num_bases)
+        self.barbosa_vec = []
+
+    def set_number_bases(self, num_bases):
         assert (float(num_bases).is_integer()), "ERROR: Sigma must be an integer."
         assert (num_bases > 0), "ERROR: Sigma must be greater than zero."
-        assert (num_bases <= n), "ERROR: Sigma must be lesser or equal to n."
-
-        # TODO Revisist whether sigma has to divide n
-        # assert (n % num_bases == 0), "ERROR: Sigma must divide n."
-        self.component_length = ceil(self.vector_length/self.num_bases) + 1
-
-        self.barbosa_vec = []
+        assert (num_bases <= self.vector_length), "ERROR: Sigma must be lesser or equal to n."
+        self.num_bases = num_bases
+        self.component_length = ceil(self.vector_length / self.num_bases) + 1
 
     def generate_keys(self):
         self.g1 = self.group.random(G1)
@@ -72,6 +73,12 @@ class MultiBasesPredScheme(PredIPEScheme):
             self.barbosa_vec.append(b_instance)
             # print("Basis " + str(i) + " : ")
             # print(self.barbosa_vec[i].print_key())
+
+    def serialize_key(self, matrix_filename, generator_filename):
+        i=0
+        for binstance in self.barbosa_vec:
+            binstance.serialize_key(matrix_filename, generator_filename)
+            i=i+1
 
     def encrypt(self, x):
         print("Calling encrypt " + str(x))

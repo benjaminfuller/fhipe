@@ -18,17 +18,15 @@ PERFORMANCE OF THIS SOFTWARE.
 Implementation of Ahmad et al. Proximity Search Scheme 
 """
 
-import sys, os, math, random, time, zlib, secrets, dill, threading,time, concurrent.futures
+import sys, os, math, random, time, zlib, secrets, dill, threading, time, asyncio
 
 # Path hack
 sys.path.insert(0, os.path.abspath('charm'))
 sys.path.insert(1, os.path.abspath('../charm'))
 
-from charm.toolbox.pairinggroup import PairingGroup, ZR, G1, G2, GT, pair
 from subprocess import call, Popen, PIPE
 
 from pathos.multiprocessing import ProcessingPool as Pool, cpu_count
-
 
 
 class ProximitySearch():
@@ -49,7 +47,15 @@ class ProximitySearch():
         self.predinstance.deserialize_key(matrix_filename, generator_filename)
         self.public_parameters = self.predinstance.getPublicParameters()
 
-    #TODO will need to augment this to store class identifier
+    @staticmethod
+    async def augment_encrypt(encrypt_method, xvec):
+        c = []
+        for x in vec:
+            x2 = [xi if xi == 1 else -1 for xi in x]
+            x2.append(-1)
+            c.append.encrypt_method(x2)
+        return c
+    # TODO will need to augment this to store class identifier
     def encrypt_dataset_parallel(self, data_set):
         for data_item in data_set:
             if len(data_item) != self.vector_length:
@@ -57,13 +63,10 @@ class ProximitySearch():
         self.enc_data = {}
         i = 0
 
-        def augment_encrypt(encrypt_method, x):
-            x2 = [xi if xi == 1 else -1 for xi in x]
-            x2.append(-1)
-            return encrypt_method(x2)
+
 
         result_list = []
-        #TODO This is not performing as well as I'd like, not sure why.  Same pattern as search
+        # TODO This is not performing as well as I'd like, not sure why.  Same pattern as search
         with Pool(processes=cpu_count()) as p:
             with concurrent.futures.ThreadPoolExecutor(max_workers=cpu_count()) as executor:
                 future_list = {executor.submit(augment_encrypt, self.predinstance.encrypt, x)
@@ -73,7 +76,7 @@ class ProximitySearch():
                     res = future.result()
                     if res is not None:
                         self.enc_data[i] = res
-                        i = i+1
+                        i = i + 1
 
     def encrypt_dataset(self, data_set):
         for data_item in data_set:
@@ -86,7 +89,7 @@ class ProximitySearch():
             x2 = [xi if xi == 1 else -1 for xi in x]
             x2.append(-1)
             self.enc_data[i] = self.predinstance.encrypt(x2)
-            i = i+1
+            i = i + 1
 
     def generate_query(self, query, distance):
         encoded_query = [xi if xi == 1 else -1 for xi in query]
@@ -96,7 +99,7 @@ class ProximitySearch():
             temp_query.append(self.vector_length - 2 * i)
             query_set.append(temp_query)
 
-        #print("Query set is " + str(query_set))
+        # print("Query set is " + str(query_set))
         encrypted_query = []
         while (len(query_set) > 0):
             next_to_encode = secrets.randbelow(len(query_set))
@@ -157,7 +160,7 @@ class ProximitySearch():
     def get_database_size(self):
         running_total = 0
         for x in self.enc_data:
-            running_total+=self.get_ct_size(self.enc_data[x])
+            running_total += self.get_ct_size(self.enc_data[x])
         return running_total
 
     def get_seckey_size(self):
@@ -168,4 +171,3 @@ class ProximitySearch():
         os.remove(matrix_file)
         os.remove(gen_file)
         return running_total
-

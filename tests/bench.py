@@ -23,6 +23,7 @@ two-input functional encryption.
 import sys, os, math
 sys.path.insert(0, os.path.abspath('.'))
 sys.path.insert(1, os.path.abspath('..'))
+sys.path.insert(1, os.path.abspath('/home/ipe/fhipe/charm/charm'))
 
 import random, time, zlib
 from fhipe import ipe, tife
