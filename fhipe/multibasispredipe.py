@@ -49,7 +49,7 @@ class MultiBasesPredScheme(PredIPEScheme):
         assert (num_bases <= n), "ERROR: Sigma must be lesser or equal to n."
 
         # TODO Revisist whether sigma has to divide n
-        assert (n % num_bases == 0), "ERROR: Sigma must divide n."
+        # assert (n % num_bases == 0), "ERROR: Sigma must divide n."
         self.component_length = ceil(self.vector_length/self.num_bases) + 1
 
         self.barbosa_vec = []
@@ -98,9 +98,13 @@ class MultiBasesPredScheme(PredIPEScheme):
 
             x_modified = [0] * self.component_length
             for j in range(self.component_length-1):
-                x_modified[j] = x[i*int(n/self.num_bases)+j]
 
-            x_modified[self.component_length-1]= zeta[i]
+                if i*ceil(n/self.num_bases) + j < len(x):
+                    x_modified[j] = x[i*ceil(n/self.num_bases)+j]
+                else:
+                    x_modified[j] = 0
+
+            x_modified[self.component_length-1] = zeta[i]
             c.append(self.barbosa_vec[i].encrypt(x_modified, beta))
         return c
 
@@ -118,7 +122,12 @@ class MultiBasesPredScheme(PredIPEScheme):
 
             y_modified = [0] * self.component_length
             for j in range(self.component_length-1):
-                y_modified[j] = y[i*int(n/self.num_bases)+j]
+
+                if i*ceil(n/self.num_bases) + j < len(y):
+                    y_modified[j] = y[i*ceil(n/self.num_bases)+j]
+                else:
+                    y_modified[j] = 0
+
             y_modified[self.component_length-1] = -1
             tk.append(self.barbosa_vec[i].keygen(y_modified, alpha))
 
