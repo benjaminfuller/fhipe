@@ -40,6 +40,8 @@ class ProximitySearch():
         self.predinstance.generate_keys()
         self.public_parameters = self.predinstance.getPublicParameters()
 
+    #TODO this just writes the same key.  Need to write it for each barbosa instance
+    #TODO and we sure we're appending, doing it right
     def serialize_key(self, matrix_filename, generator_filename):
         self.predinstance.serialize_key(matrix_filename, generator_filename)
 
