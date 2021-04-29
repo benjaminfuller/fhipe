@@ -19,7 +19,7 @@ y2 = [1, 5, 1, 1, 1, 1, 1, 1]
 x2 = [0, 0, 0, 0, 0, 0, 0, 0]
 
 print("Testing for sigma = 1")
-barbosa = multibasispredipe.MultiBasesPredScheme(n, group_name, 1)
+barbosa = multibasispredipe.MultiBasesPredScheme(n, group_name)
 barbosa.generate_keys()
 
 ctx = barbosa.encrypt(x1)
@@ -34,7 +34,7 @@ print("Test passed.")
 
 
 print("Testing for sigma = 4")
-barbosa = multibasispredipe.MultiBasesPredScheme(n, group_name, 4)
+barbosa = multibasispredipe.MultiBasesPredScheme(n, group_name, False, 4)
 barbosa.generate_keys()
 
 ctx = barbosa.encrypt(x1)
@@ -49,7 +49,7 @@ print("Test passed.")
 
 
 print("Testing for sigma = 3")
-barbosa = multibasispredipe.MultiBasesPredScheme(n, group_name, 3)
+barbosa = multibasispredipe.MultiBasesPredScheme(n, group_name, False, 3)
 barbosa.generate_keys()
 
 ctx = barbosa.encrypt(x1)
