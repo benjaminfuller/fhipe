@@ -43,6 +43,8 @@ class ProximitySearch():
     def serialize_key(self, matrix_filename, generator_filename):
         self.predinstance.serialize_key(matrix_filename, generator_filename)
 
+
+
     def deserialize_key(self, matrix_filename, generator_filename):
         self.predinstance.deserialize_key(matrix_filename, generator_filename)
         self.public_parameters = self.predinstance.getPublicParameters()
@@ -62,8 +64,6 @@ class ProximitySearch():
                 raise ValueError("Improper Vector Size")
         self.enc_data = {}
         i = 0
-
-
 
         result_list = []
         # TODO This is not performing as well as I'd like, not sure why.  Same pattern as search
