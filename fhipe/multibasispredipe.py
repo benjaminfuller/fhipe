@@ -19,7 +19,7 @@ PERFORMANCE OF THIS SOFTWARE.
 Implementation of function-hiding inner product encryption (FHIPE).
 """
 
-import sys, os, math, random, time, zlib
+import sys, os, math, random, time, zlib, asyncio
 from math import ceil
 
 # Path hack
@@ -31,6 +31,8 @@ from fhipe import ipe
 from fhipe.predipe import PredIPEScheme
 from fhipe.predipe import BarbosaIPEScheme
 from charm.core.engine.util import objectToBytes,bytesToObject
+
+
 
 class MultiBasesPredScheme(PredIPEScheme):
 
@@ -54,6 +56,41 @@ class MultiBasesPredScheme(PredIPEScheme):
         assert (num_bases <= self.vector_length), "ERROR: Sigma must be lesser or equal to n."
         self.num_bases = num_bases
         self.component_length = ceil(self.vector_length / self.num_bases) + 1
+
+    async def __generate_matrix_pair(self, i):
+        print("starting basis " + str(i) + "generation ...")
+        b_instance = BarbosaIPEScheme(self.component_length, self.group_name, self.simulated)
+        (B, Bstar, pp, detB) = BarbosaIPEScheme.generate_matrices(self.component_length, self.simulated, self.group)
+
+        # divide Bstar by detB inverse to have Bstar * B = I
+        for j in range(int(self.component_length)):
+            for k in range(int(self.component_length)):
+                Bstar[j][k] = Bstar[j][k] * (1 / detB)
+
+        b_instance.set_key(B, Bstar, pp, self.g1, self.g2)
+        self.barbosa_vec.append(b_instance)
+
+        delay = random.randint(1,10)
+        await asyncio.sleep(delay)
+        print("end of basis " + str(i) + "generation.")
+
+
+    async def generate_keys_parallel(self):
+        self.g1 = self.group.random(G1)
+        self.g2 = self.group.random(G2)
+        self.barbosa_vec = []
+
+        taskvec = []
+        for i in range(self.num_bases):
+            taskvec.append(asyncio.create_task(self.__generate_matrix_pair(i)))
+
+        await asyncio.gather(*taskvec)
+
+        for i in range(self.num_bases):
+            print(i)
+            print(self.barbosa_vec[i].print_key())
+
+
 
     def generate_keys(self):
         self.g1 = self.group.random(G1)

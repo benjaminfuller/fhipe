@@ -107,26 +107,45 @@ class ProximitySearch():
             query_set.remove(query_set[next_to_encode])
         return encrypted_query
 
-    def search_parallel(self, query):
-        def match_item(decrypt_method, pub, index, ciphertext, token):
+
+
+    async def search_parallel(self, query):
+
+        async def match_item(decrypt_method, pub, index, ciphertext, token, result_list):
             for subquery in token:
                 if decrypt_method(pub, ciphertext, subquery):
-                    return index
+                    result_list.append(index)
                     break
             return
 
         result_list = []
-        with Pool(processes=cpu_count()) as p:
-            with concurrent.futures.ThreadPoolExecutor(max_workers=cpu_count()) as executor:
-                future_list = {executor.submit(match_item, self.predinstance.decrypt,
-                                               self.public_parameters, x, self.enc_data[x], query)
-                               for x in self.enc_data
-                               }
-                for future in concurrent.futures.as_completed(future_list):
-                    res = future.result()
-                    if res is not None:
-                        result_list.append(res)
+        taskvec = []
+        for x in range(len(self.enc_data)):
+            taskvec.append(asyncio.create_task(match_item(self.predinstance.decrypt, self.public_parameters, x, self.enc_data[x], query, result_list)))
+
+        await asyncio.gather(*taskvec)
         return result_list
+
+    # def search_parallel(self, query):
+    #     def match_item(decrypt_method, pub, index, ciphertext, token):
+    #         for subquery in token:
+    #             if decrypt_method(pub, ciphertext, subquery):
+    #                 return index
+    #                 break
+    #         return
+    #
+    #     result_list = []
+    #     with Pool(processes=cpu_count()) as p:
+    #         with concurrent.futures.ThreadPoolExecutor(max_workers=cpu_count()) as executor:
+    #             future_list = {executor.submit(match_item, self.predinstance.decrypt,
+    #                                            self.public_parameters, x, self.enc_data[x], query)
+    #                            for x in self.enc_data
+    #                            }
+    #             for future in concurrent.futures.as_completed(future_list):
+    #                 res = future.result()
+    #                 if res is not None:
+    #                     result_list.append(res)
+    #     return result_list
 
     def search(self, query):
         result_list = []
