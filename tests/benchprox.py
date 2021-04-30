@@ -61,7 +61,7 @@ def bench_keygen(n, group_name, ipescheme, iter=1, matrix_file=None, gen_file=No
         database = prox_search.ProximitySearch(vector_length, ipescheme, group_name)
         setup_b = time.time()
         setup_time_list.append(setup_b - setup_a)
-        if ipescheme is multibasispredipe.MultiBasesPredScheme and num_bases>1:
+        if ipescheme is multibasispredipe.MultiBasesPredScheme and num_bases > 1:
             database.predinstance.set_number_bases(num_bases)
         keygen_a = time.time()
         database.generate_keys()
@@ -69,12 +69,14 @@ def bench_keygen(n, group_name, ipescheme, iter=1, matrix_file=None, gen_file=No
         keygen_time_list.append(keygen_b - keygen_a)
 
         if matrix_file is not None and gen_file is not None:
-          database.serialize_key(matrix_file, gen_file)
-          database_size.append(int(os.path.getsize(matrix_file)*num_bases)+int(os.path.getsize(gen_file)*num_bases))
+            database.serialize_key(matrix_file, gen_file)
+            database_size.append(
+                int(os.path.getsize(matrix_file) * num_bases) + int(os.path.getsize(gen_file) * num_bases))
 
     print("Time to setup, avg " + str(list_average(setup_time_list)) + " stdev " + str(pstdev(setup_time_list)))
     print("Time to keygen, avg " + str(list_average(keygen_time_list)) + " stdev " + str(pstdev(keygen_time_list)))
-    print("Size of key for "+str(num_bases)+" bases, avg " + str(list_average(database_size)) + " stdev " + str(pstdev(database_size)))
+    print("Size of key for " + str(num_bases) + " bases, avg " + str(list_average(database_size)) + " stdev " + str(
+        pstdev(database_size)))
     if matrix_file is not None and gen_file is not None and save_keys:
         database.serialize_key(matrix_file, gen_file)
     return database
@@ -190,11 +192,13 @@ if __name__ == "__main__":
         save = True
     if args['benchmark_key_gen']:
         print("Benchmarking Barbosa Key Generation")
-        database = bench_keygen(n=vector_length, group_name=group_name, ipescheme=predipe.BarbosaIPEScheme, iter=10,
-                                matrix_file=matrix_file, gen_file=gen_file, save_keys=save)
+        database = bench_keygen(n=vector_length, group_name=group_name,
+                                ipescheme=predipe.BarbosaIPEScheme, iter=10,
+                                matrix_file=matrix_file, gen_file=gen_file, save_keys=save, num_bases=1)
         print("Benchmarking Multi Basis Generation")
         for i in range(64):
-            database = bench_keygen(n=vector_length, group_name=group_name, ipescheme=multibasispredipe.MultiBasesPredScheme, iter=10,
+            database = bench_keygen(n=vector_length, group_name=group_name,
+                                    ipescheme=multibasispredipe.MultiBasesPredScheme, iter=10,
                                     matrix_file=matrix_file, gen_file=gen_file, save_keys=save, num_bases=64-i)
 
     if args['load'] and args['matrix_file'] and args['generator_file']:
@@ -212,4 +216,4 @@ if __name__ == "__main__":
             database.generate_keys()
             database.enc_data(nd_dataset)
         print("Benchmarking Query Time")
-        bench_queries(n=vector_length,queryset=nd_dataset[:5],iter=5, t=8)
+        bench_queries(n=vector_length, queryset=nd_dataset[:5], iter=5, t=8)
