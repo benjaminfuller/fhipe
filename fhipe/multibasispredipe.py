@@ -114,7 +114,7 @@ class MultiBasesPredScheme(PredIPEScheme):
     def serialize_key(self, matrix_filename, generator_filename):
         i = 0
         for binstance in self.barbosa_vec:
-            binstance.serialize_key(matrix_filename, generator_filename)
+            binstance.serialize_key(matrix_filename+str(i), generator_filename)
             i = i+1
 
     def encrypt(self, x):

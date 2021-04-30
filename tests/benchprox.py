@@ -20,7 +20,7 @@ two-input functional encryption.
 """
 
 # Path hack.
-import sys, os, math, glob, numpy as np, argparse
+import sys, os, math, glob, numpy as np, argparse, asyncio
 
 sys.path.insert(0, os.path.abspath('.'))
 sys.path.insert(1, os.path.abspath('..'))
@@ -58,7 +58,7 @@ def bench_keygen(n, group_name, ipescheme, iter=1, matrix_file=None, gen_file=No
     database = None
     for i in range(iter):
         setup_a = time.time()
-        database = prox_search.ProximitySearch(vector_length, ipescheme, group_name)
+        database = prox_search.ProximitySearch(n, ipescheme, group_name)
         setup_b = time.time()
         setup_time_list.append(setup_b - setup_a)
         if ipescheme is multibasispredipe.MultiBasesPredScheme and num_bases > 1:
@@ -70,13 +70,18 @@ def bench_keygen(n, group_name, ipescheme, iter=1, matrix_file=None, gen_file=No
 
         if matrix_file is not None and gen_file is not None:
             database.serialize_key(matrix_file, gen_file)
-            database_size.append(
-                int(os.path.getsize(matrix_file) * num_bases) + int(os.path.getsize(gen_file) * num_bases))
+            if ipescheme is predipe.BarbosaIPEScheme:
+                database_size.append(
+                    int(os.path.getsize(matrix_file)) + int(os.path.getsize(gen_file)))
+            else:
+                size = int(os.path.getsize(gen_file))
+                for j in range(num_bases):
+                    size = size+os.path.getsize(matrix_file+str(j))
+                database_size.append(size)
 
-    print("Time to setup, avg " + str(list_average(setup_time_list)) + " stdev " + str(pstdev(setup_time_list)))
-    print("Time to keygen, avg " + str(list_average(keygen_time_list)) + " stdev " + str(pstdev(keygen_time_list)))
-    print("Size of key for " + str(num_bases) + " bases, avg " + str(list_average(database_size)) + " stdev " + str(
-        pstdev(database_size)))
+    print(str(num_bases)+", "+str(list_average(setup_time_list))+", "+str(pstdev(setup_time_list)) +
+          ", " + str(list_average(keygen_time_list))+", " + str(pstdev(keygen_time_list)) +
+          ", " + str(list_average(database_size))+", "+str(pstdev(database_size)))
     if matrix_file is not None and gen_file is not None and save_keys:
         database.serialize_key(matrix_file, gen_file)
     return database
@@ -100,20 +105,29 @@ def bench_queries(n, database, queryset, iter=1, t=0):
     sk_size = []
     token_time_list = []
     search_time_list = []
+    parallel_search_time_list = []
     return_size_list = []
     for i in range(iter):
         sk_size.append(database.get_seckey_size())
         j = 0
         for dataitem in queryset:
             token_a = time.time()
-            token = database.generate_query(dataitem, t)
+            token =  database.generate_query(dataitem, t)
             token_b = time.time()
             token_time_list.append(token_b - token_a)
 
             search_a = time.time()
-            indices = database.search(token)
+            asyncio.run(database.search_parallel_2(token))
+            #indices = asyncio.run(database.search_parallel(token))
+            print(indices)
             search_b = time.time()
-            search_time_list.append(search_b - search_a)
+            parallel_search_time_list.append(search_b - search_a)
+
+            # search_a = time.time()
+            # indices = database.search(token)
+            # search_b = time.time()
+            # search_time_list.append(search_b - search_a)
+
 
             if indices is None:
                 return_size_list.append(0)
@@ -122,17 +136,12 @@ def bench_queries(n, database, queryset, iter=1, t=0):
                 print("Matches for query " + str(i) + " " + str(len(indices)))
             # TODO: add size of token
 
-            print("Time to create token, avg " + str(list_average(token_time_list)) + " stdev " + str(
-                pstdev(token_time_list)))
-            print("Time to search, avg " + str(list_average(search_time_list)) + " stdev " + str(
-                pstdev(search_time_list)))
             j = j + 1
 
-    print("Size of secret key " + str(list_average(sk_size)) + " stdev " + str(pstdev(sk_size)))
-    print("Time to create token, avg " + str(list_average(token_time_list)) + " stdev " + str(pstdev(token_time_list)))
-    print("Time to search, avg " + str(list_average(search_time_list)) + " stdev " + str(pstdev(search_time_list)))
-    print("Number of results, avg " + str(list_average(return_size_list)) + " stdev " + str(pstdev(return_size_list)))
-
+    print(str(list_average(sk_size)) + ", " + str(pstdev(sk_size))+", "+str(list_average(token_time_list)) + ", "+
+          str(pstdev(token_time_list)) + ", " + str(list_average(parallel_search_time_list)) + ", "+
+          str(pstdev(parallel_search_time_list)) + ", "+str(list_average(return_size_list))+ ", "+
+          str(pstdev(return_size_list)))
 
 def accuracy_prox(n, group_name, dataset, ipescheme, iter=1, max_t=0, simulated=False):
     database = prox_search.ProximitySearch(vector_length, ipescheme, group_name)
@@ -191,15 +200,18 @@ if __name__ == "__main__":
     if args['save']:
         save = True
     if args['benchmark_key_gen']:
+        print("Benchmarking Multi Basis Generation")
+        print("Number Bases, Setup Time Av, Setup Time STDev, KeyGen Time Avg, KeyGen Time STDEv, Key size Avg, "
+              "Key Size STDev")
+        for i in range(65):
+            database = bench_keygen(n=vector_length, group_name=group_name,
+                                    ipescheme=multibasispredipe.MultiBasesPredScheme, iter=1,
+                                    matrix_file=matrix_file, gen_file=gen_file, save_keys=save, num_bases=65 - i)
+
         print("Benchmarking Barbosa Key Generation")
         database = bench_keygen(n=vector_length, group_name=group_name,
                                 ipescheme=predipe.BarbosaIPEScheme, iter=10,
                                 matrix_file=matrix_file, gen_file=gen_file, save_keys=save, num_bases=1)
-        print("Benchmarking Multi Basis Generation")
-        for i in range(64):
-            database = bench_keygen(n=vector_length, group_name=group_name,
-                                    ipescheme=multibasispredipe.MultiBasesPredScheme, iter=10,
-                                    matrix_file=matrix_file, gen_file=gen_file, save_keys=save, num_bases=64-i)
 
     if args['load'] and args['matrix_file'] and args['generator_file']:
         database = prox_search.ProximitySearch(vector_length, predipe.BarbosaIPEScheme, group_name)
@@ -208,7 +220,7 @@ if __name__ == "__main__":
         if database is None:
             database = prox_search.ProximitySearch(vector_length, predipe.BarbosaIPEScheme, group_name)
             database.generate_keys()
-        bench_enc_data(n=vector_length, database=database, dataset=nd_dataset, iter=10)
+        bench_enc_data(n=vector_length, database=database, dataset=nd_dataset, iter=1)
 
     if args['benchmark_queries']:
         if database is None:
@@ -216,4 +228,6 @@ if __name__ == "__main__":
             database.generate_keys()
             database.enc_data(nd_dataset)
         print("Benchmarking Query Time")
-        bench_queries(n=vector_length, queryset=nd_dataset[:5], iter=5, t=8)
+        print("SK size Avg, SK size STDev, Token time avg, Token time STDev, Search time Avg, Search time STDev,"
+              " Num Results Avg, STDev")
+        bench_queries(n=vector_length, database=database, queryset=nd_dataset[:1], iter=1, t=8)

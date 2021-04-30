@@ -40,8 +40,6 @@ class ProximitySearch():
         self.predinstance.generate_keys()
         self.public_parameters = self.predinstance.getPublicParameters()
 
-    #TODO this just writes the same key.  Need to write it for each barbosa instance
-    #TODO and we sure we're appending, doing it right
     def serialize_key(self, matrix_filename, generator_filename):
         self.predinstance.serialize_key(matrix_filename, generator_filename)
 
@@ -110,44 +108,69 @@ class ProximitySearch():
         return encrypted_query
 
 
-
     async def search_parallel(self, query):
 
-        async def match_item(decrypt_method, pub, index, ciphertext, token, result_list):
+        async def match_item(decrypt_method, pub, index, ciphertext, token):
+            print("Searching on item "+str(index))
+            result_list=[]
             for subquery in token:
                 if decrypt_method(pub, ciphertext, subquery):
                     result_list.append(index)
                     break
-            return
+            return result_list
 
         result_list = []
         taskvec = []
         for x in range(len(self.enc_data)):
-            taskvec.append(asyncio.create_task(match_item(self.predinstance.decrypt, self.public_parameters, x, self.enc_data[x], query, result_list)))
+            taskvec.append(asyncio.create_task(match_item(self.predinstance.decrypt, self.public_parameters, x, self.enc_data[x], query)))
 
-        await asyncio.gather(*taskvec)
+        combined_list = await asyncio.wait(taskvec)
+        result_list = [item for sublist in combined_list for item in sublist]
         return result_list
 
-    # def search_parallel(self, query):
-    #     def match_item(decrypt_method, pub, index, ciphertext, token):
-    #         for subquery in token:
-    #             if decrypt_method(pub, ciphertext, subquery):
-    #                 return index
-    #                 break
-    #         return
-    #
-    #     result_list = []
-    #     with Pool(processes=cpu_count()) as p:
-    #         with concurrent.futures.ThreadPoolExecutor(max_workers=cpu_count()) as executor:
-    #             future_list = {executor.submit(match_item, self.predinstance.decrypt,
-    #                                            self.public_parameters, x, self.enc_data[x], query)
-    #                            for x in self.enc_data
-    #                            }
-    #             for future in concurrent.futures.as_completed(future_list):
-    #                 res = future.result()
-    #                 if res is not None:
-    #                     result_list.append(res)
-    #     return result_list
+
+
+    async def search_parallel_2(self, query):
+        result_list_main = []
+
+        async def search_worker(name, queue):
+            while True:
+                # Get a "work item" out of the queue.
+                (decrypt_method, pub, index, ciphertext, token) = await queue.get()
+                result_list = []
+                print(str(name) + " "+str(index))
+                # for subquery in token:
+                #     if decrypt_method(pub, ciphertext, subquery):
+                #         result_list.append(index)
+                #         break
+                await asyncio.sleep(index/10)
+                print(str(name) + " " + str(result_list))
+                # Notify the queue that the "work item" has been processed.
+                queue.task_done()
+
+        # Create a queue that we will use to store our "workload".
+        queue = asyncio.Queue()
+        for x in range(len(self.enc_data)):
+            queue.put_nowait((self.predinstance.decrypt, self.public_parameters, x, self.enc_data[x], query))
+
+
+        # Create three worker tasks to process the queue concurrently.
+        tasks = []
+        for i in range(32):
+            task = asyncio.create_task(search_worker('worker'+str(i), queue))
+            tasks.append(task)
+
+        print("Number of workers is "+str(len(tasks)))
+
+        await queue.join()
+
+        # Cancel our worker tasks.
+        for task in tasks:
+            task.cancel()
+        # Wait until all worker tasks are cancelled.
+        await asyncio.gather(*tasks, return_exceptions=True)
+
+
 
     def search(self, query):
         result_list = []
