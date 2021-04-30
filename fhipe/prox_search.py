@@ -19,6 +19,7 @@ Implementation of Ahmad et al. Proximity Search Scheme
 """
 
 import sys, os, math, random, time, zlib, secrets, dill, threading, time, asyncio
+from math import ceil
 
 # Path hack
 sys.path.insert(0, os.path.abspath('charm'))
@@ -134,29 +135,42 @@ class ProximitySearch():
         result_list_main = []
 
         async def search_worker(name, queue):
-            while True:
-                # Get a "work item" out of the queue.
-                (decrypt_method, pub, index, ciphertext, token) = await queue.get()
-                result_list = []
-                print(str(name) + " "+str(index))
-                # for subquery in token:
-                #     if decrypt_method(pub, ciphertext, subquery):
-                #         result_list.append(index)
-                #         break
-                await asyncio.sleep(index/10)
-                print(str(name) + " " + str(result_list))
-                # Notify the queue that the "work item" has been processed.
-                queue.task_done()
+            # Get a "work item" out of the queue.
+            (decrypt_method, pub, start_index, end_index, token) = await queue.get()
+            result_list = []
+            print(str(name) + " "+str(start_index)+ " "+str(end_index))
+            await asyncio.sleep(.001)
+            for current_index in range(start_index, end_index):
+            #TODO this is not asynchronous but I don't know why
+                print("Searching for index "+str(current_index))
+                for subquery in token:
+                    if decrypt_method(pub, self.enc_data[current_index], subquery):
+                        result_list.append(current_index)
+                        break
+
+            print(str(name) + " " + str(result_list))
+            if result_list is not None:
+                result_list_main = result_list_main + result_list
+            # Notify the queue that the "work item" has been processed.
+            queue.task_done()
 
         # Create a queue that we will use to store our "workload".
         queue = asyncio.Queue()
-        for x in range(len(self.enc_data)):
-            queue.put_nowait((self.predinstance.decrypt, self.public_parameters, x, self.enc_data[x], query))
+        print(os.cpu_count())
+        number_records = len(self.enc_data)
+        chunk_size = ceil(number_records/os.cpu_count())
+
+        for x in range(os.cpu_count()):
+            start = chunk_size*x
+            end = chunk_size*(x+1)
+            if end>number_records:
+                end = number_records
+            if(start<end):
+                queue.put_nowait((self.predinstance.decrypt, self.public_parameters, start, end,query))
 
 
-        # Create three worker tasks to process the queue concurrently.
         tasks = []
-        for i in range(32):
+        for i in range(os.cpu_count()):
             task = asyncio.create_task(search_worker('worker'+str(i), queue))
             tasks.append(task)
 
@@ -169,6 +183,7 @@ class ProximitySearch():
             task.cancel()
         # Wait until all worker tasks are cancelled.
         await asyncio.gather(*tasks, return_exceptions=True)
+        print(result_list_main)
 
 
 
