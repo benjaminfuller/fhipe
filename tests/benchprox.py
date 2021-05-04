@@ -117,7 +117,7 @@ def bench_queries(n, database, queryset, iter=1, t=0):
             token_time_list.append(token_b - token_a)
 
             search_a = time.time()
-            asyncio.run(database.search_parallel_2(token))
+            asyncio.run(database.search_parallel(token))
             #indices = asyncio.run(database.search_parallel(token))
             print(indices)
             search_b = time.time()

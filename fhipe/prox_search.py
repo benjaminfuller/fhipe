@@ -21,6 +21,7 @@ Implementation of Ahmad et al. Proximity Search Scheme
 
 import sys, os, math, random, time, zlib, secrets, dill, threading, time, asyncio
 from math import ceil
+from charm.core.engine.util import objectToBytes,bytesToObject
 
 # Path hack
 sys.path.insert(0, os.path.abspath('charm'))
@@ -52,21 +53,25 @@ class ProximitySearch():
         self.public_parameters = self.predinstance.getPublicParameters()
 
     @staticmethod
-    def augment_encrypt(encrypt_method, vec):
-        c = []
-        print(vec)
-        x2 = []
-        for x in vec:
-            # x2 = [xi if xi == 1 else -1 for xi in x]
-            # for xi in x:
-            if x == 1:
-                x2.append(1)
-            else:
-                x2.append(-1)
+    def augment_encrypt(encrypt_method, group, vec_list):
+        #TODO create an new prox search and set the key according to the two files
+        c_list = []
+        for vec in vec_list:
+            c = []
+            #print(os.getpid()+str(vec))
+            x2 = []
+            for x in vec:
+                # x2 = [xi if xi == 1 else -1 for xi in x]
+                # for xi in x:
+                if x == 1:
+                    x2.append(1)
+                else:
+                    x2.append(-1)
 
-            x2.append(-1)
-            c.append(encrypt_method(x2))
-        return c
+                x2.append(-1)
+                c.append(encrypt_method(x2))
+            c_list.append(c)
+        return objectToBytes(c_list, group)
     # TODO will need to augment this to store class identifier
 
     def encrypt_dataset_parallel(self, data_set):
@@ -76,17 +81,25 @@ class ProximitySearch():
         self.enc_data = {}
         i = 0
 
+        processes = cpu_count()
+        data_set_split = []
+        data_set_len = len(data_set)
+        #TODO check this actually produces the right indices
+        for j in range(processes):
+            data_set_split.append(data_set[ceil(j*data_set_len/processes):ceil((j+1)*data_set_len/processes)])
+        #print(data_set_split)
         result_list = []
         # TODO This is not performing as well as I'd like, not sure why.  Same pattern as search
         with Pool(processes=cpu_count()) as p:
-            with concurrent.futures.ThreadPoolExecutor(max_workers=cpu_count()) as executor:
-                future_list = {executor.submit(self.augment_encrypt, self.predinstance.encrypt, x)
-                               for x in data_set
+            with concurrent.futures.ProcessPoolExecutor(max_workers=cpu_count()) as executor:
+                future_list = {executor.submit(self.augment_encrypt, self.predinstance.encrypt, self.predinstance.group, data_set_component)
+                               for data_set_component in data_set_split
                                }
                 for future in concurrent.futures.as_completed(future_list):
                     res = future.result()
                     if res is not None:
-                        self.enc_data[i] = res
+                        print(res)
+                        #self.enc_data[i] = res
                         i = i + 1
 
     def encrypt_dataset(self, data_set):
