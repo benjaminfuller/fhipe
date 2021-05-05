@@ -57,40 +57,6 @@ class MultiBasesPredScheme(PredIPEScheme):
         self.num_bases = num_bases
         self.component_length = ceil(self.vector_length / self.num_bases) + 1
 
-    async def __generate_matrix_pair(self, i):
-        print("starting basis " + str(i) + "generation ...")
-        b_instance = BarbosaIPEScheme(self.component_length, self.group_name, self.simulated)
-        (B, Bstar, pp, detB) = BarbosaIPEScheme.generate_matrices(self.component_length, self.simulated, self.group)
-
-        # divide Bstar by detB inverse to have Bstar * B = I
-        for j in range(int(self.component_length)):
-            for k in range(int(self.component_length)):
-                Bstar[j][k] = Bstar[j][k] * (1 / detB)
-
-        b_instance.set_key(B, Bstar, pp, self.g1, self.g2)
-        self.barbosa_vec.append(b_instance)
-
-        delay = random.randint(1,10)
-        await asyncio.sleep(delay)
-        print("end of basis " + str(i) + "generation.")
-
-
-    async def generate_keys_parallel(self):
-        self.g1 = self.group.random(G1)
-        self.g2 = self.group.random(G2)
-        self.barbosa_vec = []
-
-        taskvec = []
-        for i in range(self.num_bases):
-            taskvec.append(asyncio.create_task(self.__generate_matrix_pair(i)))
-
-        await asyncio.gather(*taskvec)
-
-        for i in range(self.num_bases):
-            print(i)
-            print(self.barbosa_vec[i].print_key())
-
-
 
     def generate_keys(self):
         self.g1 = self.group.random(G1)
@@ -111,14 +77,49 @@ class MultiBasesPredScheme(PredIPEScheme):
             # print("Basis " + str(i) + " : ")
             # print(self.barbosa_vec[i].print_key())
 
-    def serialize_key(self, matrix_filename, generator_filename):
-        i = 0
+    def write_key_to_file(self, matrix_filename, generator_filename):
+        open(matrix_filename, 'w').close()
+
+        (matrix_str, generator_bytes)= self.serialize_key()
+        with open(matrix_filename, "a") as secret_key_file:
+            secret_key_file.write(matrix_str)
+            secret_key_file.close()
+
+        with open(generator_filename, "wb") as secret_key_file:
+            secret_key_file.write(generator_bytes)
+            secret_key_file.close()
+
+    def read_key_from_file(self, matrix_filename, generator_filename):
+        with open(matrix_filename, "r") as secret_key_file:
+            matrix_contents = secret_key_file.read()
+            secret_key_file.close()
+
+        with open(generator_filename, "rb") as secret_key_file:
+            generator_bytes =secret_key_file.read()
+            secret_key_file.close()
+
+        self.deserialize_key(matrix_contents, generator_bytes)
+
+    def serialize_key(self):
+        matrix_str = str(self.num_bases)
         for binstance in self.barbosa_vec:
-            binstance.serialize_key(matrix_filename+str(i), generator_filename)
-            i = i+1
+            (matrix, gen) = binstance.serialize_key()
+            matrix_str = matrix_str + "\n"+matrix
+            gen_bytes = gen
+
+        return matrix_str, gen_bytes
+
+    def deserialize_key(self, matrix_str, gen_bytes):
+        (num_bases, matrix_str_tmp) = matrix_str.split("\n",1)
+        self.set_number_bases(int(matrix_str.split("\n",1)[0]))
+        matrix_str_list = matrix_str_tmp.split("\n")
+        for i in range(self.num_bases):
+            b_instance = BarbosaIPEScheme(self.component_length, self.group_name, self.simulated)
+            b_instance.deserialize_key(matrix_str_list[3*i]+"\n"+matrix_str_list[3*i+1]+"\n"
+                                       +matrix_str_list[3*i+2], gen_bytes)
+            self.barbosa_vec.append(b_instance)
 
     def encrypt(self, x):
-        print("Calling encrypt " + str(x))
         assert(len(x) == self.vector_length)
         n = self.vector_length
 
@@ -194,3 +195,6 @@ class MultiBasesPredScheme(PredIPEScheme):
         tk_flat = [item for subl in tk for item in subl]
         return BarbosaIPEScheme.decrypt(public_params[0], ct_flat, tk_flat)
 
+    def get_seckey_size(self):
+        (matrix_str, gen_bytes) = self.serialize_key()
+        return len(matrix_str) + len(gen_bytes)

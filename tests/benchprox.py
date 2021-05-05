@@ -67,23 +67,17 @@ def bench_keygen(n, group_name, ipescheme, iter=1, matrix_file=None, gen_file=No
         database.generate_keys()
         keygen_b = time.time()
         keygen_time_list.append(keygen_b - keygen_a)
+        database_size.append(database.get_seckey_size())
 
-        if matrix_file is not None and gen_file is not None:
-            database.serialize_key(matrix_file, gen_file)
-            if ipescheme is predipe.BarbosaIPEScheme:
-                database_size.append(
-                    int(os.path.getsize(matrix_file)) + int(os.path.getsize(gen_file)))
-            else:
-                size = int(os.path.getsize(gen_file))
-                for j in range(num_bases):
-                    size = size+os.path.getsize(matrix_file+str(j))
-                database_size.append(size)
 
     print(str(num_bases)+", "+str(list_average(setup_time_list))+", "+str(pstdev(setup_time_list)) +
           ", " + str(list_average(keygen_time_list))+", " + str(pstdev(keygen_time_list)) +
           ", " + str(list_average(database_size))+", "+str(pstdev(database_size)))
     if matrix_file is not None and gen_file is not None and save_keys:
-        database.serialize_key(matrix_file, gen_file)
+        if ipescheme is predipe.BarbosaIPEScheme:
+            database.write_key_to_file(matrix_file, gen_file)
+        else:
+            database.write_key_to_file(matrix_file+str(num_bases), gen_file+str(num_bases))
     return database
 
 
@@ -91,7 +85,7 @@ def bench_enc_data(n, database, dataset, iter=1, parallel=0):
     encdb_size = []
     encrypt_time_list = []
     num_bases = 1
-    if database is multibasispredipe.MultiBasesPredScheme:
+    if database.predicate_scheme is multibasispredipe.MultiBasesPredScheme:
         num_bases = database.predinstance.num_bases
     for i in range(iter):
         encrypt_a = time.time()
@@ -116,7 +110,7 @@ def bench_queries(n, database, queryset, iter=1, t=0, parallel=0):
         j = 0
         for dataitem in queryset:
             token_a = time.time()
-            token =  database.generate_query(dataitem, t)
+            token = database.generate_query(dataitem, t)
             token_b = time.time()
             token_time_list.append(token_b - token_a)
 
@@ -219,13 +213,22 @@ if __name__ == "__main__":
 
         print("Benchmarking Barbosa Key Generation")
         database = bench_keygen(n=vector_length, group_name=group_name,
-                                ipescheme=predipe.BarbosaIPEScheme, iter=10,
+                                ipescheme=predipe.BarbosaIPEScheme, iter=1,
                                 matrix_file=matrix_file, gen_file=gen_file, save_keys=save, num_bases=1)
 
-    if args['load'] and args['matrix_file'] and args['generator_file']:
-        database = prox_search.ProximitySearch(vector_length, predipe.BarbosaIPEScheme, group_name)
-        database.deserialize_key(matrix_file, gen_file)
     if args['benchmark_enc']:
+        if args['load']:
+            print("Benchmarking Multibasis Encryption")
+            print("Number Bases, Parallel, Time Avg, Time StDev, Size Avg, Size StDev")
+            for i in range(65):
+                database = prox_search.ProximitySearch(vector_length, multibasispredipe.MultiBasesPredScheme)
+                database.read_key_from_file(matrix_file+str(65-i), gen_file+str(65-i))
+                bench_enc_data(n=vector_length, database=database, dataset=nd_dataset, iter=1, parallel=parallel)
+            database = None
+
+        if args['load'] and args['matrix_file'] and args['generator_file']:
+            database = prox_search.ProximitySearch(vector_length, predipe.BarbosaIPEScheme, group_name)
+            database.read_key_from_file(matrix_file, gen_file)
         if database is None:
             database = prox_search.ProximitySearch(vector_length, predipe.BarbosaIPEScheme, group_name)
             database.generate_keys()

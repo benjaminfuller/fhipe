@@ -21,7 +21,7 @@ Implementation of Ahmad et al. Proximity Search Scheme
 
 import sys, os, math, random, time, zlib, secrets, dill, threading, time, asyncio
 from math import ceil
-from charm.core.engine.util import objectToBytes,bytesToObject
+from charm.core.engine.util import objectToBytes, bytesToObject
 
 # Path hack
 sys.path.insert(0, os.path.abspath('charm'))
@@ -50,31 +50,33 @@ class ProximitySearch():
         self.predinstance.generate_keys()
         self.public_parameters = self.predinstance.getPublicParameters()
 
-    def serialize_key(self, matrix_filename, generator_filename):
-        self.predinstance.serialize_key(matrix_filename, generator_filename)
-        self.matrix_file = matrix_filename
-        self.generators_file = generator_filename
+    def serialize_key(self):
+        return self.predinstance.serialize_key()
 
-
-
-    def deserialize_key(self, matrix_filename, generator_filename):
-        self.predinstance.deserialize_key(matrix_filename, generator_filename)
+    def deserialize_key(self, matrix_str, generator_bytes):
+        self.predinstance.deserialize_key(matrix_str, generator_bytes)
         self.public_parameters = self.predinstance.getPublicParameters()
-        self.matrix_file = matrix_filename
-        self.generators_file = generator_filename
+
+    def read_key_from_file(self, matrix_filename, generator_filename):
+        self.predinstance.read_key_from_file(matrix_filename, generator_filename)
+
+    def write_key_to_file(self, matrix_filename, generator_filename):
+        self.predinstance.write_key_to_file(matrix_filename, generator_filename)
+
 
     @staticmethod
-    def augment_encrypt(n, predicate_scheme, group_name, matrix_filename, generator_filename, pp, vec_list, start_index, end_index):
+    def augment_encrypt(n, predicate_scheme, group_name, matrix_str, generator_bytes, pp, vec_list, start_index,
+                        end_index):
         prox_instance = ProximitySearch(n, predicate_scheme, group_name)
-        prox_instance.deserialize_key(matrix_filename, generator_filename)
+        prox_instance.deserialize_key(matrix_str, generator_bytes)
         prox_instance.public_parameters = pp
         prox_instance.encrypt_dataset(vec_list)
 
         # store encrypted data chunk in file ciphertexts_pid
-        with open("ciphertexts_" + str(start_index)+"_"+str(end_index), "wb") as enc_file:
+        with open("ciphertexts_" + str(start_index) + "_" + str(end_index), "wb") as enc_file:
             enc_file.write(objectToBytes(prox_instance.enc_data, prox_instance.predinstance.group))
             enc_file.close()
-            return os.stat("ciphertexts_" + str(start_index)+"_"+str(end_index)).st_size
+            return os.stat("ciphertexts_" + str(start_index) + "_" + str(end_index)).st_size
         # TODO will need to augment this to store class identifier
 
     def encrypt_dataset_parallel(self, data_set):
@@ -88,32 +90,27 @@ class ProximitySearch():
         data_set_split = []
         data_set_len = len(data_set)
         self.num_records = data_set_len
-        #TODO check this actually produces the right indices
+        # TODO check this actually produces the right indices
         for j in range(processes):
-            start = ceil(j*data_set_len/processes)
-            end = ceil((j+1)*data_set_len/processes)
+            start = ceil(j * data_set_len / processes)
+            end = ceil((j + 1) * data_set_len / processes)
             if end > data_set_len:
                 end = data_set_len
             data_set_split.append((start, end, data_set[start:end]))
-        # print(data_set_split)
-        # result_list = []
-
-        # TODO This is not performing as well as I'd like, not sure why.  Same pattern as search
         total_data_size = 0
+        (matrix_str, generator_bytes) = self.serialize_key()
         with Pool(processes) as p:
             with concurrent.futures.ProcessPoolExecutor(processes) as executor:
                 future_list = {executor.submit(self.augment_encrypt, self.vector_length, self.predicate_scheme,
-                                               self.group_name, self.matrix_file, self.generators_file,
+                                               self.group_name, matrix_str, generator_bytes,
                                                self.public_parameters, data_set_component, start, end)
                                for (start, end, data_set_component) in data_set_split
                                }
                 for future in concurrent.futures.as_completed(future_list):
                     res = future.result()
                     if res is not None:
-                        total_data_size= total_data_size+res
+                        total_data_size = total_data_size + res
         self.enc_data_size = total_data_size
-
-
 
     def encrypt_dataset(self, data_set):
         for data_item in data_set:
@@ -145,9 +142,10 @@ class ProximitySearch():
         return encrypted_query
 
     @staticmethod
-    def augment_search(n, predicate_scheme, group_name, matrix_filename, generator_filename, token_bytes, pp, start_index, end_index):
-        prox_scheme = ProximitySearch(n+1, predicate_scheme, group_name)
-        prox_scheme.deserialize_key(matrix_filename, generator_filename)
+    def augment_search(n, predicate_scheme, group_name, matrix_str, generator_bytes, token_bytes, pp,
+                       start_index, end_index):
+        prox_scheme = ProximitySearch(n + 1, predicate_scheme, group_name)
+        prox_scheme.deserialize_key(matrix_str, generator_bytes)
         prox_scheme.public_parameters = pp
         with open("ciphertexts_" + str(start_index) + "_" + str(end_index), "rb") as enc_file:
             prox_scheme.enc_data = bytesToObject(enc_file.read(), prox_scheme.predinstance.group)
@@ -165,26 +163,27 @@ class ProximitySearch():
         query_bytes = objectToBytes(query, self.predinstance.group)
 
         for j in range(processes):
-            start = ceil(j*self.num_records/processes)
-            end = ceil((j+1)*self.num_records/processes)
+            start = ceil(j * self.num_records / processes)
+            end = ceil((j + 1) * self.num_records / processes)
             if end > self.num_records:
                 end = self.num_records
             data_set_split.append((start, end))
-
         overall_return_list = []
+        (matrix_str, generator_bytes) = self.serialize_key()
         with Pool(processes) as p:
             with concurrent.futures.ProcessPoolExecutor(processes) as executor:
-                future_list = {executor.submit(self.augment_search, self.vector_length, self.predicate_scheme, self.group_name,
-                                               self.matrix_file, self.generators_file, query_bytes, self.public_parameters, start, end)
-                               for (start, end) in data_set_split
-                               }
+                future_list = {
+                    executor.submit(self.augment_search, self.vector_length, self.predicate_scheme, self.group_name,
+                                    matrix_str, generator_bytes, query_bytes, self.public_parameters, start,
+                                    end)
+                    for (start, end) in data_set_split
+                    }
                 for future in concurrent.futures.as_completed(future_list):
                     res = future.result()
-                    if res is not None and len(res)>0:
+                    if res is not None and len(res) > 0:
                         overall_return_list = overall_return_list + res
 
         return overall_return_list
-
 
     def search(self, query):
         result_list = []
@@ -215,18 +214,14 @@ class ProximitySearch():
         return ct_sizeinbytes
 
     def get_database_size(self):
-        if  self.parallel is 0:
+        if self.parallel is 0:
             running_total = 0
             for x in self.enc_data:
                 running_total += self.get_ct_size(self.enc_data[x])
             return running_total
-        else: return self.enc_data_size
+        else:
+            return self.enc_data_size
 
     def get_seckey_size(self):
-        matrix_file = "matrix.temp"
-        gen_file = "gen.temp"
-        self.predinstance.serialize_key(matrix_file, gen_file)
-        running_total = os.path.getsize(matrix_file) + os.path.getsize(gen_file)
-        os.remove(matrix_file)
-        os.remove(gen_file)
-        return running_total
+        return self.predinstance.get_seckey_size()
+

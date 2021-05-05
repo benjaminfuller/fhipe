@@ -46,6 +46,18 @@ class PredIPEScheme():
     def getPublicParameters(self):
         pass
 
+    def serialize_key(self):
+        pass
+
+    def deserialize_key(self):
+        pass
+    def write_key_to_file(self, matrix_filename, gen_filename):
+        pass
+    def read_key_from_file(self, matrix_filename, gen_filename):
+        pass
+    def get_seckey_size(self):
+        pass
+
 class BarbosaIPEScheme(PredIPEScheme):
 
     def __init__(self,n, group_name = 'MNT159', simulated = False):
@@ -128,9 +140,16 @@ class BarbosaIPEScheme(PredIPEScheme):
         except ValueError as e:
             print("ValueError : " + str(e))
 
-    def serialize_matrices(self, matrix_filename):
+    def write_matrix_to_file(self, matrix_filename):
+        serialized_matrix = self.serialize_matrices()
+        with open(matrix_filename, "a") as secret_key_file:
+            secret_key_file.write(result_str)
+            secret_key_file.close()
+
+    def serialize_matrices(self):
         # This has the effect of putting two spaces after the dimensions.  This is to be consistent
         # with what flint is doing as we're generating matrices from flint in other places
+        serialized_matrix = ""
         result_str = str(self.vector_length) + " " + str(self.vector_length) + " "
         for x in self.B:
             for y in x:
@@ -139,10 +158,8 @@ class BarbosaIPEScheme(PredIPEScheme):
         for x in self.Bstar:
             for y in x:
                 result_str = result_str + " " + str(y)
+        return result_str
 
-        with open(matrix_filename, "a") as secret_key_file:
-            secret_key_file.write(result_str)
-            secret_key_file.close()
 
     def print_key(self):
         print("B")
@@ -154,41 +171,44 @@ class BarbosaIPEScheme(PredIPEScheme):
         # print("g2")
         # print(self.g2)
 
-    def serialize_key(self, matrix_filename, generator_filename):
-        open(matrix_filename, 'w').close()
-
-        self.serialize_matrices(matrix_filename)
-
-
-        g1bytes = objectToBytes(self.g1, self.group)
-        g2bytes = objectToBytes(self.g2, self.group)
-
-        result_str= "\n"+str(len(g1bytes))+" "+str(len(g2bytes))
-        with open(matrix_filename, "a") as secret_key_file:
-            secret_key_file.write(result_str)
+    def write_key_to_file(self, matrix_filename, generator_filename):
+        print("Calling Barbosa write key to file")
+        (matrix_str, generator_bytes)= self.serialize_key()
+        with open(matrix_filename, "w") as secret_key_file:
+            secret_key_file.write(matrix_str)
             secret_key_file.close()
 
         with open(generator_filename, "wb") as secret_key_file:
-            secret_key_file.write(g1bytes)
-            secret_key_file.write(g2bytes)
+            secret_key_file.write(generator_bytes)
             secret_key_file.close()
 
+    def serialize_key(self):
+        result_str = self.serialize_matrices()
+        g1bytes = objectToBytes(self.g1, self.group)
+        g2bytes = objectToBytes(self.g2, self.group)
 
-    def deserialize_key(self, matrix_filename, generator_filename):
-        matrix_contents=""
+        result_str= result_str+"\n"+str(len(g1bytes))+" "+str(len(g2bytes))
+        return result_str, g1bytes + g2bytes
+
+    def read_key_from_file(self, matrix_filename, generator_filename):
         with open(matrix_filename, "r") as secret_key_file:
             matrix_contents = secret_key_file.read()
             secret_key_file.close()
 
-        (Bstr, Bstarstr, gparams) = str.split(matrix_contents, '\n')
+        with open(generator_filename, "rb") as secret_key_file:
+            generator_bytes =secret_key_file.read()
+            secret_key_file.close()
+
+        self.deserialize_key(matrix_contents, generator_bytes)
+
+    def deserialize_key(self, matrix_str, generator_bytes):
+        (Bstr, Bstarstr, gparams) = str.split(matrix_str, '\n')
         B = ipe.parse_matrix(Bstr, self.group)
         Bstar = ipe.parse_matrix(Bstarstr, self.group)
 
-
         (g1len, g2len) = str.split(gparams, ' ')
-        with open(generator_filename, "rb") as secret_key_file:
-            g1bytes = secret_key_file.read(int(g1len))
-            g2bytes = secret_key_file.read(int(g2len))
+        g1bytes = generator_bytes[:int(g1len)]
+        g2bytes = generator_bytes[int(g1len):]
         self.g1 = bytesToObject(g1bytes, self.group)
         self.g2 = bytesToObject(g2bytes, self.group)
 
@@ -277,6 +297,9 @@ class BarbosaIPEScheme(PredIPEScheme):
 
         result = ipe.innerprod_pair(ct, token)
         return result == PairingGroup(group_name).init(GT,1)
+    def get_seckey_size(self):
+        (matrix_str, gen_bytes) = self.serialize_key()
+        return len(matrix_str) + len(gen_bytes)
 
 
 
