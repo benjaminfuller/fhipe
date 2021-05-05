@@ -87,19 +87,23 @@ def bench_keygen(n, group_name, ipescheme, iter=1, matrix_file=None, gen_file=No
     return database
 
 
-def bench_enc_data(n, database, dataset, iter=1):
+def bench_enc_data(n, database, dataset, iter=1, parallel=0):
     encdb_size = []
     encrypt_time_list = []
+    num_bases = 1
+    if database is multibasispredipe.MultiBasesPredScheme:
+        num_bases = database.predinstance.num_bases
     for i in range(iter):
         encrypt_a = time.time()
-        database.encrypt_dataset(dataset)
+        if parallel is 1:
+            database.encrypt_dataset_parallel(dataset)
+        else:
+            database.encrypt_dataset(dataset)
         encrypt_b = time.time()
         encrypt_time_list.append(encrypt_b - encrypt_a)
         encdb_size.append(database.get_database_size())
-    print("Time to encrypt " + str(len(dataset)) + " records, avg " + str(list_average(encrypt_time_list)) +
-          " stdev " + str(pstdev(encrypt_time_list)))
-    print("Size of encrypted data " + str(list_average(encdb_size)) + " stdev " + str(pstdev(encdb_size)))
-
+    print(str(num_bases)+", "+str(parallel)+", "+str(list_average(encrypt_time_list))+", "+
+          str(pstdev(encrypt_time_list))+", "+str(list_average(encdb_size))+", "+str(pstdev(encdb_size)))
 
 def bench_queries(n, database, queryset, iter=1, t=0):
     sk_size = []
@@ -117,7 +121,6 @@ def bench_queries(n, database, queryset, iter=1, t=0):
             token_time_list.append(token_b - token_a)
 
             search_a = time.time()
-            asyncio.run(database.search_parallel(token))
             #indices = asyncio.run(database.search_parallel(token))
             print(indices)
             search_b = time.time()
@@ -220,7 +223,10 @@ if __name__ == "__main__":
         if database is None:
             database = prox_search.ProximitySearch(vector_length, predipe.BarbosaIPEScheme, group_name)
             database.generate_keys()
-        bench_enc_data(n=vector_length, database=database, dataset=nd_dataset, iter=1)
+        print("Benchmarking Barbosa Encryption")
+        print("Number Bases, Parallel, Time Avg, Time StDev, Size Avg, Size StDev")
+        bench_enc_data(n=vector_length, database=database, dataset=nd_dataset, iter=1, parallel=1)
+        bench_enc_data(n=vector_length, database=database, dataset=nd_dataset, iter=1, parallel=0)
 
     if args['benchmark_queries']:
         if database is None:

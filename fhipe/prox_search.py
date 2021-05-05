@@ -41,6 +41,9 @@ class ProximitySearch():
         self.enc_data = None
         self.matrix_file = None
         self.generators_file = None
+        self.group_name = group_name
+        self.parallel = 0
+        self.enc_data_size = 0
 
     def generate_keys(self):
         self.predinstance.generate_keys()
@@ -60,7 +63,7 @@ class ProximitySearch():
         self.generators_file = generator_filename
 
     @staticmethod
-    def augment_encrypt(n, predicate_scheme, group_name, matrix_filename, generator_filename, pp, vec_list):
+    def augment_encrypt(n, predicate_scheme, group_name, matrix_filename, generator_filename, pp, vec_list, start_index, end_index):
         predipe = predicate_scheme(n+1, group_name)
         predipe.deserialize_key(matrix_filename, generator_filename)
         predipe.public_parameters = pp
@@ -77,12 +80,14 @@ class ProximitySearch():
             c_list.append(predipe.encrypt(x2))
 
         # store encrypted data chunk in file ciphertexts_pid
-        with open("ciphertexts_" + str(os.getpid()), "wb") as enc_file:
+        with open("ciphertexts_" + str(start_index)+"_"+str(end_index), "wb") as enc_file:
             enc_file.write(objectToBytes(c_list, predipe.group))
             enc_file.close()
+            return os.stat("ciphertexts_" + str(start_index)+"_"+str(end_index)).st_size
     # TODO will need to augment this to store class identifier
 
     def encrypt_dataset_parallel(self, data_set):
+        self.parallel = 1
         for data_item in data_set:
             if len(data_item) != self.vector_length:
                 raise ValueError("Improper Vector Size")
@@ -94,25 +99,27 @@ class ProximitySearch():
         data_set_len = len(data_set)
         #TODO check this actually produces the right indices
         for j in range(processes):
-            data_set_split.append(data_set[ceil(j*data_set_len/processes):ceil((j+1)*data_set_len/processes)])
+            start = ceil(j*data_set_len/processes)
+            end = ceil((j+1)*data_set_len/processes)
+            if end > data_set_len:
+                end = data_set_len
+            data_set_split.append((start, end, data_set[start:end]))
         # print(data_set_split)
         # result_list = []
 
-        #TODO should not be hardcoded but cannot figure out how to get it from predicate scheme ...
-        group_name = 'MNT159'
-
         # TODO This is not performing as well as I'd like, not sure why.  Same pattern as search
+        total_data_size = 0
         with Pool(processes) as p:
             with concurrent.futures.ProcessPoolExecutor(processes) as executor:
-                future_list = {executor.submit(self.augment_encrypt, self.vector_length, self.predicate_scheme, group_name,
-                                               self.matrix_file, self.generators_file, self.public_parameters, data_set_component)
-                               for data_set_component in data_set_split
+                future_list = {executor.submit(self.augment_encrypt, self.vector_length, self.predicate_scheme, self.group_name,
+                                               self.matrix_file, self.generators_file, self.public_parameters, data_set_component, start, end)
+                               for (start, end, data_set_component) in data_set_split
                                }
-                # for future in concurrent.futures.as_completed(future_list):
-                    # res = future.result()
-                    # if res is not None:
-                    #     print(res)
-                    #     #self.enc_data[i] = res
+                for future in concurrent.futures.as_completed(future_list):
+                    res = future.result()
+                    if res is not None:
+                        total_data_size= total_data_size+res
+        self.enc_data_size = total_data_size
 
 
     def encrypt_dataset(self, data_set):
@@ -253,10 +260,12 @@ class ProximitySearch():
         return ct_sizeinbytes
 
     def get_database_size(self):
-        running_total = 0
-        for x in self.enc_data:
-            running_total += self.get_ct_size(self.enc_data[x])
-        return running_total
+        if  self.parallel is 0:
+            running_total = 0
+            for x in self.enc_data:
+                running_total += self.get_ct_size(self.enc_data[x])
+            return running_total
+        else: return self.enc_data_size
 
     def get_seckey_size(self):
         matrix_file = "matrix.temp"
