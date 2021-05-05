@@ -34,10 +34,13 @@ from pathos.multiprocessing import ProcessingPool as Pool, cpu_count
 
 class ProximitySearch():
     def __init__(self, n, predicate_scheme, group_name='MNT159', simulated=False):
+        self.predicate_scheme = predicate_scheme
         self.predinstance = predicate_scheme(n + 1, group_name, simulated)
         self.public_parameters = None
         self.vector_length = n
         self.enc_data = None
+        self.matrix_file = None
+        self.generators_file = None
 
     def generate_keys(self):
         self.predinstance.generate_keys()
@@ -45,33 +48,38 @@ class ProximitySearch():
 
     def serialize_key(self, matrix_filename, generator_filename):
         self.predinstance.serialize_key(matrix_filename, generator_filename)
+        self.matrix_file = matrix_filename
+        self.generators_file = generator_filename
 
 
 
     def deserialize_key(self, matrix_filename, generator_filename):
         self.predinstance.deserialize_key(matrix_filename, generator_filename)
         self.public_parameters = self.predinstance.getPublicParameters()
+        self.matrix_file = matrix_filename
+        self.generators_file = generator_filename
 
     @staticmethod
-    def augment_encrypt(encrypt_method, group, vec_list):
-        #TODO create an new prox search and set the key according to the two files
+    def augment_encrypt(n, predicate_scheme, group_name, matrix_filename, generator_filename, pp, vec_list):
+        predipe = predicate_scheme(n+1, group_name)
+        predipe.deserialize_key(matrix_filename, generator_filename)
+        predipe.public_parameters = pp
+
         c_list = []
         for vec in vec_list:
-            c = []
-            #print(os.getpid()+str(vec))
             x2 = []
             for x in vec:
-                # x2 = [xi if xi == 1 else -1 for xi in x]
-                # for xi in x:
                 if x == 1:
                     x2.append(1)
                 else:
                     x2.append(-1)
+            x2.append(-1)
+            c_list.append(predipe.encrypt(x2))
 
-                x2.append(-1)
-                c.append(encrypt_method(x2))
-            c_list.append(c)
-        return objectToBytes(c_list, group)
+        # store encrypted data chunk in file ciphertexts_pid
+        with open("ciphertexts_" + str(os.getpid()), "wb") as enc_file:
+            enc_file.write(objectToBytes(c_list, predipe.group))
+            enc_file.close()
     # TODO will need to augment this to store class identifier
 
     def encrypt_dataset_parallel(self, data_set):
@@ -87,20 +95,25 @@ class ProximitySearch():
         #TODO check this actually produces the right indices
         for j in range(processes):
             data_set_split.append(data_set[ceil(j*data_set_len/processes):ceil((j+1)*data_set_len/processes)])
-        #print(data_set_split)
-        result_list = []
+        # print(data_set_split)
+        # result_list = []
+
+        #TODO should not be hardcoded but cannot figure out how to get it from predicate scheme ...
+        group_name = 'MNT159'
+
         # TODO This is not performing as well as I'd like, not sure why.  Same pattern as search
-        with Pool(processes=cpu_count()) as p:
-            with concurrent.futures.ProcessPoolExecutor(max_workers=cpu_count()) as executor:
-                future_list = {executor.submit(self.augment_encrypt, self.predinstance.encrypt, self.predinstance.group, data_set_component)
+        with Pool(processes) as p:
+            with concurrent.futures.ProcessPoolExecutor(processes) as executor:
+                future_list = {executor.submit(self.augment_encrypt, self.vector_length, self.predicate_scheme, group_name,
+                                               self.matrix_file, self.generators_file, self.public_parameters, data_set_component)
                                for data_set_component in data_set_split
                                }
-                for future in concurrent.futures.as_completed(future_list):
-                    res = future.result()
-                    if res is not None:
-                        print(res)
-                        #self.enc_data[i] = res
-                        i = i + 1
+                # for future in concurrent.futures.as_completed(future_list):
+                    # res = future.result()
+                    # if res is not None:
+                    #     print(res)
+                    #     #self.enc_data[i] = res
+
 
     def encrypt_dataset(self, data_set):
         for data_item in data_set:
