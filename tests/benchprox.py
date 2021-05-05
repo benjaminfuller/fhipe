@@ -105,7 +105,7 @@ def bench_enc_data(n, database, dataset, iter=1, parallel=0):
     print(str(num_bases)+", "+str(parallel)+", "+str(list_average(encrypt_time_list))+", "+
           str(pstdev(encrypt_time_list))+", "+str(list_average(encdb_size))+", "+str(pstdev(encdb_size)))
 
-def bench_queries(n, database, queryset, iter=1, t=0):
+def bench_queries(n, database, queryset, iter=1, t=0, parallel=0):
     sk_size = []
     token_time_list = []
     search_time_list = []
@@ -121,9 +121,12 @@ def bench_queries(n, database, queryset, iter=1, t=0):
             token_time_list.append(token_b - token_a)
 
             search_a = time.time()
-            #indices = asyncio.run(database.search_parallel(token))
-            print(indices)
+            if parallel is 1:
+                indices =database.parallel_search(token)
+            else:
+                indices = database.search(token)
             search_b = time.time()
+            print(indices)
             parallel_search_time_list.append(search_b - search_a)
 
             # search_a = time.time()
@@ -185,6 +188,8 @@ if __name__ == "__main__":
                         default=0, help='Benchmark Key Generation')
     parser.add_argument('--benchmark_enc', '-be', const=1, type=int, nargs='?',
                         default=0, help='Benchmark Dataset encryption')
+    parser.add_argument('--parallel', '-p', const=1, type=int, nargs='?',
+                        default=0, help='Whether to run parallel algorithms, default yes')
     args = vars(parser.parse_args())
 
     matrix_file = None
@@ -200,6 +205,7 @@ if __name__ == "__main__":
 
     save = False
     database = None
+    parallel = args['parallel']
     if args['save']:
         save = True
     if args['benchmark_key_gen']:
@@ -225,8 +231,7 @@ if __name__ == "__main__":
             database.generate_keys()
         print("Benchmarking Barbosa Encryption")
         print("Number Bases, Parallel, Time Avg, Time StDev, Size Avg, Size StDev")
-        bench_enc_data(n=vector_length, database=database, dataset=nd_dataset, iter=1, parallel=1)
-        bench_enc_data(n=vector_length, database=database, dataset=nd_dataset, iter=1, parallel=0)
+        bench_enc_data(n=vector_length, database=database, dataset=nd_dataset, iter=1, parallel=parallel)
 
     if args['benchmark_queries']:
         if database is None:
@@ -236,4 +241,4 @@ if __name__ == "__main__":
         print("Benchmarking Query Time")
         print("SK size Avg, SK size STDev, Token time avg, Token time STDev, Search time Avg, Search time STDev,"
               " Num Results Avg, STDev")
-        bench_queries(n=vector_length, database=database, queryset=nd_dataset[:1], iter=1, t=8)
+        bench_queries(n=vector_length, database=database, queryset=nd_dataset[:1], iter=1, t=8, parallel=parallel)

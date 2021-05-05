@@ -44,6 +44,7 @@ class ProximitySearch():
         self.group_name = group_name
         self.parallel = 0
         self.enc_data_size = 0
+        self.num_records = 0
 
     def generate_keys(self):
         self.predinstance.generate_keys()
@@ -64,27 +65,17 @@ class ProximitySearch():
 
     @staticmethod
     def augment_encrypt(n, predicate_scheme, group_name, matrix_filename, generator_filename, pp, vec_list, start_index, end_index):
-        predipe = predicate_scheme(n+1, group_name)
-        predipe.deserialize_key(matrix_filename, generator_filename)
-        predipe.public_parameters = pp
-
-        c_list = []
-        for vec in vec_list:
-            x2 = []
-            for x in vec:
-                if x == 1:
-                    x2.append(1)
-                else:
-                    x2.append(-1)
-            x2.append(-1)
-            c_list.append(predipe.encrypt(x2))
+        prox_instance = ProximitySearch(n, predicate_scheme, group_name)
+        prox_instance.deserialize_key(matrix_filename, generator_filename)
+        prox_instance.public_parameters = pp
+        prox_instance.encrypt_dataset(vec_list)
 
         # store encrypted data chunk in file ciphertexts_pid
         with open("ciphertexts_" + str(start_index)+"_"+str(end_index), "wb") as enc_file:
-            enc_file.write(objectToBytes(c_list, predipe.group))
+            enc_file.write(objectToBytes(prox_instance.enc_data, prox_instance.predinstance.group))
             enc_file.close()
             return os.stat("ciphertexts_" + str(start_index)+"_"+str(end_index)).st_size
-    # TODO will need to augment this to store class identifier
+        # TODO will need to augment this to store class identifier
 
     def encrypt_dataset_parallel(self, data_set):
         self.parallel = 1
@@ -92,11 +83,11 @@ class ProximitySearch():
             if len(data_item) != self.vector_length:
                 raise ValueError("Improper Vector Size")
         self.enc_data = {}
-        i = 0
 
         processes = cpu_count()
         data_set_split = []
         data_set_len = len(data_set)
+        self.num_records = data_set_len
         #TODO check this actually produces the right indices
         for j in range(processes):
             start = ceil(j*data_set_len/processes)
@@ -111,8 +102,9 @@ class ProximitySearch():
         total_data_size = 0
         with Pool(processes) as p:
             with concurrent.futures.ProcessPoolExecutor(processes) as executor:
-                future_list = {executor.submit(self.augment_encrypt, self.vector_length, self.predicate_scheme, self.group_name,
-                                               self.matrix_file, self.generators_file, self.public_parameters, data_set_component, start, end)
+                future_list = {executor.submit(self.augment_encrypt, self.vector_length, self.predicate_scheme,
+                                               self.group_name, self.matrix_file, self.generators_file,
+                                               self.public_parameters, data_set_component, start, end)
                                for (start, end, data_set_component) in data_set_split
                                }
                 for future in concurrent.futures.as_completed(future_list):
@@ -122,13 +114,14 @@ class ProximitySearch():
         self.enc_data_size = total_data_size
 
 
+
     def encrypt_dataset(self, data_set):
         for data_item in data_set:
             if len(data_item) != self.vector_length:
                 raise ValueError("Improper Vector Size")
         self.enc_data = {}
-        i = 0
 
+        i = 0
         for x in data_set:
             x2 = [xi if xi == 1 else -1 for xi in x]
             x2.append(-1)
@@ -151,88 +144,50 @@ class ProximitySearch():
             query_set.remove(query_set[next_to_encode])
         return encrypted_query
 
+    @staticmethod
+    def augment_search(n, predicate_scheme, group_name, matrix_filename, generator_filename, token_bytes, pp, start_index, end_index):
+        prox_scheme = ProximitySearch(n+1, predicate_scheme, group_name)
+        prox_scheme.deserialize_key(matrix_filename, generator_filename)
+        prox_scheme.public_parameters = pp
+        with open("ciphertexts_" + str(start_index) + "_" + str(end_index), "rb") as enc_file:
+            prox_scheme.enc_data = bytesToObject(enc_file.read(), prox_scheme.predinstance.group)
+            enc_file.close()
+        token = bytesToObject(token_bytes, prox_scheme.predinstance.group)
+        indices = prox_scheme.search(token)
+        return indices
 
-    async def search_parallel(self, query):
+    def parallel_search(self, query):
+        self.parallel = 1
 
-        async def match_item(decrypt_method, pub, index, ciphertext, token):
-            print("Searching on item "+str(index))
-            result_list=[]
-            for subquery in token:
-                if decrypt_method(pub, ciphertext, subquery):
-                    result_list.append(index)
-                    break
-            return result_list
+        processes = cpu_count()
+        data_set_split = []
+        query_filename = "query"
+        query_bytes = objectToBytes(query, self.predinstance.group)
 
-        result_list = []
-        taskvec = []
-        for x in range(len(self.enc_data)):
-            taskvec.append(asyncio.create_task(match_item(self.predinstance.decrypt, self.public_parameters, x, self.enc_data[x], query)))
+        for j in range(processes):
+            start = ceil(j*self.num_records/processes)
+            end = ceil((j+1)*self.num_records/processes)
+            if end > self.num_records:
+                end = self.num_records
+            data_set_split.append((start, end))
 
-        combined_list = await asyncio.wait(taskvec)
-        result_list = [item for sublist in combined_list for item in sublist]
-        return result_list
+        overall_return_list = []
+        with Pool(processes) as p:
+            with concurrent.futures.ProcessPoolExecutor(processes) as executor:
+                future_list = {executor.submit(self.augment_search, self.vector_length, self.predicate_scheme, self.group_name,
+                                               self.matrix_file, self.generators_file, query_bytes, self.public_parameters, start, end)
+                               for (start, end) in data_set_split
+                               }
+                for future in concurrent.futures.as_completed(future_list):
+                    res = future.result()
+                    if res is not None and len(res)>0:
+                        overall_return_list = overall_return_list + res
 
-
-
-    async def search_parallel_2(self, query):
-        result_list_main = []
-
-        async def search_worker(name, queue):
-            # Get a "work item" out of the queue.
-            (decrypt_method, pub, start_index, end_index, token) = await queue.get()
-            result_list = []
-            print(str(name) + " "+str(start_index)+ " "+str(end_index))
-            await asyncio.sleep(.001)
-            for current_index in range(start_index, end_index):
-            #TODO this is not asynchronous but I don't know why
-                print("Searching for index "+str(current_index))
-                for subquery in token:
-                    if decrypt_method(pub, self.enc_data[current_index], subquery):
-                        result_list.append(current_index)
-                        break
-
-            print(str(name) + " " + str(result_list))
-            if result_list is not None:
-                result_list_main = result_list_main + result_list
-            # Notify the queue that the "work item" has been processed.
-            queue.task_done()
-
-        # Create a queue that we will use to store our "workload".
-        queue = asyncio.Queue()
-        print(os.cpu_count())
-        number_records = len(self.enc_data)
-        chunk_size = ceil(number_records/os.cpu_count())
-
-        for x in range(os.cpu_count()):
-            start = chunk_size*x
-            end = chunk_size*(x+1)
-            if end>number_records:
-                end = number_records
-            if(start<end):
-                queue.put_nowait((self.predinstance.decrypt, self.public_parameters, start, end,query))
-
-
-        tasks = []
-        for i in range(os.cpu_count()):
-            task = asyncio.create_task(search_worker('worker'+str(i), queue))
-            tasks.append(task)
-
-        print("Number of workers is "+str(len(tasks)))
-
-        await queue.join()
-
-        # Cancel our worker tasks.
-        for task in tasks:
-            task.cancel()
-        # Wait until all worker tasks are cancelled.
-        await asyncio.gather(*tasks, return_exceptions=True)
-        print(result_list_main)
-
+        return overall_return_list
 
 
     def search(self, query):
         result_list = []
-
         for x in self.enc_data:
             index = None
             for subquery in query:
