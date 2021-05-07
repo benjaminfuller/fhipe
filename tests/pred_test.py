@@ -4,7 +4,7 @@ import sys, os, math, argparse
 sys.path.insert(0, os.path.abspath('.'))
 sys.path.insert(1, os.path.abspath('..'))
 
-from fhipe import predipe, prox_search, multibasispredipe
+from pse import predipe, prox_search, multibasispredipe
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Benchmarking of Proximity Search Schemes.')

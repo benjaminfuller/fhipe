@@ -5,7 +5,7 @@ sys.path.insert(1, os.path.abspath('..'))
 
 from pathos.multiprocessing import ProcessingPool as Pool, cpu_count
 
-from fhipe import multibasispredipe, prox_search, predipe
+from pse import multibasispredipe, prox_search, predipe
 
 sys.path.insert(0, os.path.abspath('.'))
 sys.path.insert(1, os.path.abspath('..'))

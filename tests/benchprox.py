@@ -26,7 +26,7 @@ sys.path.insert(0, os.path.abspath('.'))
 sys.path.insert(1, os.path.abspath('..'))
 
 import random, time, zlib
-from fhipe import predipe, prox_search, multibasispredipe
+from pse import predipe, prox_search, multibasispredipe
 from statistics import pstdev
 
 
