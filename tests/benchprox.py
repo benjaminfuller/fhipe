@@ -141,13 +141,27 @@ def bench_queries(n, database, queryset, iterations=1, t=0, parallel=0):
           str(pstdev(parallel_search_time_list)) + ", "+str(true_accept_rate)+ ", "+
           str(false_accept_rate))
 
-def accuracy_prox(n, group_name, dataset, ipescheme, iter=1, max_t=0, simulated=False):
-    database = prox_search.ProximitySearch(vector_length, ipescheme, group_name)
-    database.generate_keys()
-
-    # TODO:Add accuracy testing
-    # TODO: Vary t to check accuracy, need to make sure returned value is in same class.
-
+def accuracy_prox(n, database, queryset, iterations=1, t=0, parallel=0):
+    true_accept_rate = 0
+    false_accept_rate = 0
+    dataset_size = sum(len(queryset[query_class]) for query_class in queryset)
+    total_queries = iterations*dataset_size
+    for i in range(iterations):
+        for query_class in queryset:
+            for dataitem in queryset[query_class]:
+                token = database.generate_query(dataitem, t)
+                if parallel is 1:
+                    indices = database.parallel_search(token)
+                else:
+                    indices = database.search(token)
+                if str(query_class) in indices:
+                    true_accept_rate = true_accept_rate + 1 / total_queries
+                    return_size_list.append(0)
+                    if len(indices) > 1:
+                        false_accept_rate = false_accept_rate + 1 / total_queries
+                elif len(indices) > 0:
+                    false_accept_rate = false_accept_rate + 1 / total_queries
+    print(str(true_accept_rate) + ", " + str(false_accept_rate))
 
 def read_fvector(filePath):
     with open(filePath) as f:
@@ -194,6 +208,8 @@ if __name__ == "__main__":
                         default=0, help='Benchmark Key Generation')
     parser.add_argument('--benchmark_enc', '-be', const=1, type=int, nargs='?',
                         default=0, help='Benchmark Dataset encryption')
+    parser.add_argument('--benchmark_accuracy', '-ba', const=1, type=int, nargs='?',
+                        default=0, help='Benchmark Accuracy')
     parser.add_argument('--parallel', '-p', const=1, type=int, nargs='?',
                         default=0, help='Whether to run parallel algorithms, default yes')
     args = vars(parser.parse_args())
@@ -217,7 +233,7 @@ if __name__ == "__main__":
         save = True
     if args['benchmark_key_gen']:
         database={}
-        print("Benchmarking Multi Basis Generation")
+        print("Benchmarking Multi Basis Generation", flush=True)
         print("Number Bases, Setup Time Av, Setup Time STDev, KeyGen Time Avg, KeyGen Time STDEv, Key size Avg, "
               "Key Size STDev")
         for i in range(65):
@@ -225,15 +241,14 @@ if __name__ == "__main__":
                                     ipescheme=multibasispredipe.MultiBasesPredScheme, iterations=1,
                                     matrix_file=matrix_file, gen_file=gen_file, save_keys=save, num_bases=65 - i)
 
-        print("Benchmarking Barbosa Key Generation")
-        database[66] = bench_keygen(n=vector_length, group_name=group_name,
+        print("Benchmarking Barbosa Key Generation", flush=True)
+        database[65] = bench_keygen(n=vector_length, group_name=group_name,
                                 ipescheme=predipe.BarbosaIPEScheme, iterations=1,
                                 matrix_file=matrix_file, gen_file=gen_file, save_keys=save, num_bases=1)
 
     if args['load']:
         database = {}
         for i in range(65):
-            print("Initializing database "+str(i))
             database[i] = prox_search.ProximitySearch(vector_length, multibasispredipe.MultiBasesPredScheme)
             database[i].read_key_from_file(matrix_file + str(65 - i), gen_file + str(65 - i))
         database[65] = prox_search.ProximitySearch(vector_length, predipe.BarbosaIPEScheme, group_name)
@@ -244,13 +259,13 @@ if __name__ == "__main__":
             print("No initialization, exiting")
             exit(1)
 
-        print("Benchmarking Multibasis Encryption")
+        print("Benchmarking Multibasis Encryption", flush=True)
         print("Number Bases, Parallel, Time Avg, Time StDev, Size Avg, Size StDev")
         for i in range(65):
             bench_enc_data(n=vector_length, database=database[i], dataset=nd_templates, iterations=1,
                            parallel=parallel)
 
-        print("Benchmarking Barbosa Encryption")
+        print("Benchmarking Barbosa Encryption", flush=True)
         print("Number Bases, Parallel, Time Avg, Time StDev, Size Avg, Size StDev")
         bench_enc_data(n=vector_length, database=database[65], dataset=nd_templates, iterations=1, parallel=parallel)
 
@@ -262,5 +277,15 @@ if __name__ == "__main__":
         print("Benchmarking Query Time")
         print("SK size Avg, SK size STDev, Token time avg, Token time STDev, Search time Avg, Search time STDev, "
               "TAR, FAR")
+        bench_enc_data(n=vector_length, database=database[65], dataset=nd_templates, iterations=1, parallel=parallel)
+        bench_queries(n=vector_length, database=database[65], queryset=nd_dataset, iterations=1, t=8, parallel=parallel)
+
+    if args['benchmark_accuracy']:
+        if database is None:
+            print("No initialization, exiting")
+            exit(1)
+
+        print("Benchmarking Accuracy")
+        print("TAR, FAR")
         bench_enc_data(n=vector_length, database=database[65], dataset=nd_templates, iterations=1, parallel=parallel)
         bench_queries(n=vector_length, database=database[65], queryset=nd_dataset, iterations=1, t=8, parallel=parallel)
