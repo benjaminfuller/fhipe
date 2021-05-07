@@ -90,7 +90,6 @@ class ProximitySearch():
         data_set_split = []
         data_set_len = len(data_set)
         self.num_records = data_set_len
-        # TODO check this actually produces the right indices
         for j in range(processes):
             start = ceil(j * data_set_len / processes)
             end = ceil((j + 1) * data_set_len / processes)
@@ -190,7 +189,7 @@ class ProximitySearch():
         for x in self.enc_data:
             index = None
             for subquery in query:
-                if self.predinstance.decrypt(self.predinstance.getPublicParameters(), self.enc_data[x], subquery):
+                if self.predinstance.decrypt(self.predinstance.getPublicParameters(), self.enc_data[x], subquery, self.group_name):
                     index = x
                     break
             if index is not None:

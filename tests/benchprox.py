@@ -50,13 +50,13 @@ def get_ct_size(ct):
     return ct_sizeinbytes
 
 
-def bench_keygen(n, group_name, ipescheme, iter=1, matrix_file=None, gen_file=None, simulated=False,
+def bench_keygen(n, group_name, ipescheme, iterations=1, matrix_file=None, gen_file=None, simulated=False,
                  save_keys=False, num_bases=1):
     setup_time_list = []
     keygen_time_list = []
     database_size = []
     database = None
-    for i in range(iter):
+    for i in range(iterations):
         setup_a = time.time()
         database = prox_search.ProximitySearch(n, ipescheme, group_name)
         setup_b = time.time()
@@ -69,7 +69,6 @@ def bench_keygen(n, group_name, ipescheme, iter=1, matrix_file=None, gen_file=No
         keygen_time_list.append(keygen_b - keygen_a)
         database_size.append(database.get_seckey_size())
 
-
     print(str(num_bases)+", "+str(list_average(setup_time_list))+", "+str(pstdev(setup_time_list)) +
           ", " + str(list_average(keygen_time_list))+", " + str(pstdev(keygen_time_list)) +
           ", " + str(list_average(database_size))+", "+str(pstdev(database_size)))
@@ -81,13 +80,13 @@ def bench_keygen(n, group_name, ipescheme, iter=1, matrix_file=None, gen_file=No
     return database
 
 
-def bench_enc_data(n, database, dataset, iter=1, parallel=0):
+def bench_enc_data(n, database, dataset, iterations=1, parallel=0):
     encdb_size = []
     encrypt_time_list = []
     num_bases = 1
     if database.predicate_scheme is multibasispredipe.MultiBasesPredScheme:
         num_bases = database.predinstance.num_bases
-    for i in range(iter):
+    for i in range(iterations):
         encrypt_a = time.time()
         if parallel is 1:
             database.encrypt_dataset_parallel(dataset)
@@ -99,16 +98,20 @@ def bench_enc_data(n, database, dataset, iter=1, parallel=0):
     print(str(num_bases)+", "+str(parallel)+", "+str(list_average(encrypt_time_list))+", "+
           str(pstdev(encrypt_time_list))+", "+str(list_average(encdb_size))+", "+str(pstdev(encdb_size)))
 
-def bench_queries(n, database, queryset, iter=1, t=0, parallel=0):
+def bench_queries(n, database, queryset, iterations=1, t=0, parallel=0):
     sk_size = []
     token_time_list = []
     search_time_list = []
     parallel_search_time_list = []
     return_size_list = []
-    for i in range(iter):
+    true_accept_rate = 0
+    false_accept_rate = 0
+    for i in range(iterations):
         sk_size.append(database.get_seckey_size())
-        j = 0
-        for dataitem in queryset:
+        # j = 0
+        for query_class in queryset:
+            query_choice = random.randrange(len(queryset[query_class]))
+            dataitem = queryset[query_class][query_choice]
             token_a = time.time()
             token = database.generate_query(dataitem, t)
             token_b = time.time()
@@ -120,28 +123,23 @@ def bench_queries(n, database, queryset, iter=1, t=0, parallel=0):
             else:
                 indices = database.search(token)
             search_b = time.time()
-            print(indices)
             parallel_search_time_list.append(search_b - search_a)
-
-            # search_a = time.time()
-            # indices = database.search(token)
-            # search_b = time.time()
-            # search_time_list.append(search_b - search_a)
-
-
-            if indices is None:
+            if str(query_class) in indices:
+                true_accept_rate= true_accept_rate + 1 / len(queryset) * iterations
                 return_size_list.append(0)
-            else:
-                return_size_list.append(len(indices))
-                print("Matches for query " + str(i) + " " + str(len(indices)))
-            # TODO: add size of token
+                if len(indices)>1:
+                    false_accept_rate = false_accept_rate + 1 / len(queryset) * iterations
+            elif len(indices)>0:
+                false_accept_rate = false_accept_rate + 1 / len(queryset) * iterations
 
-            j = j + 1
+            # j = j + 1
+            # if j > 1:
+            #     break
 
     print(str(list_average(sk_size)) + ", " + str(pstdev(sk_size))+", "+str(list_average(token_time_list)) + ", "+
           str(pstdev(token_time_list)) + ", " + str(list_average(parallel_search_time_list)) + ", "+
-          str(pstdev(parallel_search_time_list)) + ", "+str(list_average(return_size_list))+ ", "+
-          str(pstdev(return_size_list)))
+          str(pstdev(parallel_search_time_list)) + ", "+str(true_accept_rate)+ ", "+
+          str(false_accept_rate))
 
 def accuracy_prox(n, group_name, dataset, ipescheme, iter=1, max_t=0, simulated=False):
     database = prox_search.ProximitySearch(vector_length, ipescheme, group_name)
@@ -157,6 +155,20 @@ def read_fvector(filePath):
             temp_str = np.fromstring(line, sep=",")
             return [int(x) for x in temp_str]
 
+
+def process_full_dataset():
+    cwd = os.getcwd()
+    dir_list = glob.glob(cwd + "//features//ND_proximity_irisR_all_features_folders//*")
+    nd_dataset={}
+    class_labels={}
+    i=0
+    for dir in dir_list:
+        feat_list = glob.glob(dir+"//*")
+        nd_dataset[i] = [read_fvector(x) for x in feat_list]
+        class_labels[i] = dir
+        i = i+1
+    nd_templates = [nd_dataset[x][0] for x in nd_dataset]
+    return (nd_dataset, nd_templates, class_labels)
 
 def process_dataset():
     cwd = os.getcwd()
@@ -188,10 +200,11 @@ if __name__ == "__main__":
 
     matrix_file = None
     gen_file = None
-
-    (nd_dataset, iitd_dataset) = process_dataset()
+    (nd_dataset, nd_templates, class_labels) = process_full_dataset()
+    #(nd_dataset, iitd_dataset) = process_dataset()
+    #TODO I believe this is a symmetric curve.  I tried with BN254 and it was much much slower.
     group_name = 'MNT159'
-    vector_length = len(nd_dataset[0])
+    vector_length = len(nd_dataset[0][0])
 
     if args['matrix_file'] and args['generator_file']:
         matrix_file = args['matrix_file'][0]
@@ -203,45 +216,51 @@ if __name__ == "__main__":
     if args['save']:
         save = True
     if args['benchmark_key_gen']:
+        database={}
         print("Benchmarking Multi Basis Generation")
         print("Number Bases, Setup Time Av, Setup Time STDev, KeyGen Time Avg, KeyGen Time STDEv, Key size Avg, "
               "Key Size STDev")
         for i in range(65):
-            database = bench_keygen(n=vector_length, group_name=group_name,
-                                    ipescheme=multibasispredipe.MultiBasesPredScheme, iter=1,
+            database[i] = bench_keygen(n=vector_length, group_name=group_name,
+                                    ipescheme=multibasispredipe.MultiBasesPredScheme, iterations=1,
                                     matrix_file=matrix_file, gen_file=gen_file, save_keys=save, num_bases=65 - i)
 
         print("Benchmarking Barbosa Key Generation")
-        database = bench_keygen(n=vector_length, group_name=group_name,
-                                ipescheme=predipe.BarbosaIPEScheme, iter=1,
+        database[66] = bench_keygen(n=vector_length, group_name=group_name,
+                                ipescheme=predipe.BarbosaIPEScheme, iterations=1,
                                 matrix_file=matrix_file, gen_file=gen_file, save_keys=save, num_bases=1)
 
-    if args['benchmark_enc']:
-        if args['load']:
-            print("Benchmarking Multibasis Encryption")
-            print("Number Bases, Parallel, Time Avg, Time StDev, Size Avg, Size StDev")
-            for i in range(65):
-                database = prox_search.ProximitySearch(vector_length, multibasispredipe.MultiBasesPredScheme)
-                database.read_key_from_file(matrix_file+str(65-i), gen_file+str(65-i))
-                bench_enc_data(n=vector_length, database=database, dataset=nd_dataset, iter=1, parallel=parallel)
-            database = None
+    if args['load']:
+        database = {}
+        for i in range(65):
+            print("Initializing database "+str(i))
+            database[i] = prox_search.ProximitySearch(vector_length, multibasispredipe.MultiBasesPredScheme)
+            database[i].read_key_from_file(matrix_file + str(65 - i), gen_file + str(65 - i))
+        database[65] = prox_search.ProximitySearch(vector_length, predipe.BarbosaIPEScheme, group_name)
+        database[65].read_key_from_file(matrix_file, gen_file)
 
-        if args['load'] and args['matrix_file'] and args['generator_file']:
-            database = prox_search.ProximitySearch(vector_length, predipe.BarbosaIPEScheme, group_name)
-            database.read_key_from_file(matrix_file, gen_file)
+    if args['benchmark_enc']:
         if database is None:
-            database = prox_search.ProximitySearch(vector_length, predipe.BarbosaIPEScheme, group_name)
-            database.generate_keys()
+            print("No initialization, exiting")
+            exit(1)
+
+        print("Benchmarking Multibasis Encryption")
+        print("Number Bases, Parallel, Time Avg, Time StDev, Size Avg, Size StDev")
+        for i in range(65):
+            bench_enc_data(n=vector_length, database=database[i], dataset=nd_templates, iterations=1,
+                           parallel=parallel)
+
         print("Benchmarking Barbosa Encryption")
         print("Number Bases, Parallel, Time Avg, Time StDev, Size Avg, Size StDev")
-        bench_enc_data(n=vector_length, database=database, dataset=nd_dataset, iter=1, parallel=parallel)
+        bench_enc_data(n=vector_length, database=database[65], dataset=nd_templates, iterations=1, parallel=parallel)
 
     if args['benchmark_queries']:
         if database is None:
-            database = prox_search.ProximitySearch(vector_length, predipe.BarbosaIPEScheme, group_name)
-            database.generate_keys()
-            database.enc_data(nd_dataset)
+            print("No initialization, exiting")
+            exit(1)
+
         print("Benchmarking Query Time")
-        print("SK size Avg, SK size STDev, Token time avg, Token time STDev, Search time Avg, Search time STDev,"
-              " Num Results Avg, STDev")
-        bench_queries(n=vector_length, database=database, queryset=nd_dataset[:1], iter=1, t=8, parallel=parallel)
+        print("SK size Avg, SK size STDev, Token time avg, Token time STDev, Search time Avg, Search time STDev, "
+              "TAR, FAR")
+        bench_enc_data(n=vector_length, database=database[65], dataset=nd_templates, iterations=1, parallel=parallel)
+        bench_queries(n=vector_length, database=database[65], queryset=nd_dataset, iterations=1, t=8, parallel=parallel)
