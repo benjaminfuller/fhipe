@@ -107,41 +107,33 @@ def bench_queries(n, database, queryset, iterations=1, t=0, parallel=0):
     true_accept_rate = 0
     false_accept_rate = 0
     for i in range(iterations):
-        sk_size.append(database.get_seckey_size())
-        # j = 0
-        for query_class in queryset:
-            query_choice = random.randrange(len(queryset[query_class]))
-            dataitem = queryset[query_class][query_choice]
-            token_a = time.time()
-            token = database.generate_query(dataitem, t)
-            token_b = time.time()
-            token_time_list.append(token_b - token_a)
+        query_class = random.randrange(0,len(queryset))
+        query_choice = random.randrange(1,len(queryset[query_class]))
+        dataitem = queryset[query_class][query_choice]
+        token_a = time.time()
+        token = database.generate_query(dataitem, t)
+        token_b = time.time()
+        token_time_list.append(token_b - token_a)
 
-            search_a = time.time()
-            if parallel is 1:
-                indices =database.parallel_search(token)
-            else:
-                indices = database.search(token)
-            search_b = time.time()
-            parallel_search_time_list.append(search_b - search_a)
-            if str(query_class) in indices:
-                true_accept_rate= true_accept_rate + 1 / len(queryset) * iterations
-                return_size_list.append(0)
-                if len(indices)>1:
-                    false_accept_rate = false_accept_rate + 1 / len(queryset) * iterations
-            elif len(indices)>0:
-                false_accept_rate = false_accept_rate + 1 / len(queryset) * iterations
+        search_a = time.time()
+        if parallel is 1:
+            indices =database.parallel_search(token)
+        else:
+            indices = database.search(token)
+        if str(query_class) in indices:
+            true_accept_rate = true_accept_rate + 1 / iterations
+            if len(indices) > 1:
+                false_accept_rate = false_accept_rate + 1 / iterations
+        elif len(indices) > 0:
+            false_accept_rate = false_accept_rate + 1 / iterations
+        search_b = time.time()
+        parallel_search_time_list.append(search_b - search_a)
 
-            # j = j + 1
-            # if j > 1:
-            #     break
-
-    print(str(list_average(sk_size)) + ", " + str(pstdev(sk_size))+", "+str(list_average(token_time_list)) + ", "+
+    print(str(list_average(token_time_list)) + ", "+
           str(pstdev(token_time_list)) + ", " + str(list_average(parallel_search_time_list)) + ", "+
-          str(pstdev(parallel_search_time_list)) + ", "+str(true_accept_rate)+ ", "+
-          str(false_accept_rate))
+          str(pstdev(parallel_search_time_list))+", "+str(true_accept_rate)+", "+str(false_accept_rate))
 
-def accuracy_prox(n, database, queryset, iterations=1, t=0, parallel=0):
+def bench_accuracy(n, database, queryset, iterations=1, t=0, parallel=0):
     true_accept_rate = 0
     false_accept_rate = 0
     dataset_size = sum(len(queryset[query_class]) for query_class in queryset)
@@ -154,9 +146,11 @@ def accuracy_prox(n, database, queryset, iterations=1, t=0, parallel=0):
                     indices = database.parallel_search(token)
                 else:
                     indices = database.search(token)
+                print("Indices "+str(indices))
+                print(dataitem)
+                print(queryset[query_class][0])
                 if str(query_class) in indices:
                     true_accept_rate = true_accept_rate + 1 / total_queries
-                    return_size_list.append(0)
                     if len(indices) > 1:
                         false_accept_rate = false_accept_rate + 1 / total_queries
                 elif len(indices) > 0:
@@ -238,12 +232,12 @@ if __name__ == "__main__":
               "Key Size STDev")
         for i in range(65):
             database[i] = bench_keygen(n=vector_length, group_name=group_name,
-                                    ipescheme=multibasispredipe.MultiBasesPredScheme, iterations=1,
+                                    ipescheme=multibasispredipe.MultiBasesPredScheme, iterations=10,
                                     matrix_file=matrix_file, gen_file=gen_file, save_keys=save, num_bases=65 - i)
 
         print("Benchmarking Barbosa Key Generation", flush=True)
         database[65] = bench_keygen(n=vector_length, group_name=group_name,
-                                ipescheme=predipe.BarbosaIPEScheme, iterations=1,
+                                ipescheme=predipe.BarbosaIPEScheme, iterations=10,
                                 matrix_file=matrix_file, gen_file=gen_file, save_keys=save, num_bases=1)
 
     if args['load']:
@@ -262,23 +256,25 @@ if __name__ == "__main__":
         print("Benchmarking Multibasis Encryption", flush=True)
         print("Number Bases, Parallel, Time Avg, Time StDev, Size Avg, Size StDev")
         for i in range(65):
-            bench_enc_data(n=vector_length, database=database[i], dataset=nd_templates, iterations=1,
+            bench_enc_data(n=vector_length, database=database[i], dataset=nd_templates, iterations=10,
                            parallel=parallel)
 
         print("Benchmarking Barbosa Encryption", flush=True)
         print("Number Bases, Parallel, Time Avg, Time StDev, Size Avg, Size StDev")
-        bench_enc_data(n=vector_length, database=database[65], dataset=nd_templates, iterations=1, parallel=parallel)
+        bench_enc_data(n=vector_length, database=database[65], dataset=nd_templates, iterations=10, parallel=parallel)
 
     if args['benchmark_queries']:
         if database is None:
             print("No initialization, exiting")
             exit(1)
-
+        print("Benchmarking Multi Basis Query Time", flush=True)
+        print("Token time avg, Token time STDev, Search time Avg, Search time STDev, TAR, FAR")
+        for i in range(65):
+            database[i].encrypt_dataset_parallel(nd_templates)
+            bench_queries(n=vector_length, database=database[i], queryset=nd_dataset, iterations=10, t=8, parallel=parallel)
         print("Benchmarking Query Time")
-        print("SK size Avg, SK size STDev, Token time avg, Token time STDev, Search time Avg, Search time STDev, "
-              "TAR, FAR")
-        bench_enc_data(n=vector_length, database=database[65], dataset=nd_templates, iterations=1, parallel=parallel)
-        bench_queries(n=vector_length, database=database[65], queryset=nd_dataset, iterations=1, t=8, parallel=parallel)
+        print("Token time avg, Token time STDev, Search time Avg, Search time STDev, TAR, FAR")
+        bench_queries(n=vector_length, database=database[65], queryset=nd_dataset, iterations=10, t=8, parallel=parallel)
 
     if args['benchmark_accuracy']:
         if database is None:
@@ -287,5 +283,4 @@ if __name__ == "__main__":
 
         print("Benchmarking Accuracy")
         print("TAR, FAR")
-        bench_enc_data(n=vector_length, database=database[65], dataset=nd_templates, iterations=1, parallel=parallel)
-        bench_queries(n=vector_length, database=database[65], queryset=nd_dataset, iterations=1, t=8, parallel=parallel)
+        bench_accuracy(n=vector_length, database=database[65], queryset=nd_dataset, iterations=1, t=8, parallel=parallel)

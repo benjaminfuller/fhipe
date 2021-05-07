@@ -157,7 +157,6 @@ class MultiBasesPredScheme(PredIPEScheme):
         """
         Performs the keygen algorithm for IPE.
         """
-        print("Calling Key gen "+str(y))
         assert(len(y) == self.vector_length)
         n = self.vector_length
         tk = []
