@@ -269,18 +269,17 @@ if __name__ == "__main__":
             exit(1)
         print("Benchmarking Multi Basis Query Time", flush=True)
         print("Token time avg, Token time STDev, Search time Avg, Search time STDev, TAR, FAR")
-        for i in range(65):
+        for i in range(66):
+            if i == 65:
+                print("Benchmarking Query Time")
+                print("Token time avg, Token time STDev, Search time Avg, Search time STDev, TAR, FAR")
             database[i].encrypt_dataset_parallel(nd_templates)
             bench_queries(n=vector_length, database=database[i], queryset=nd_dataset, iterations=10, t=8, parallel=parallel)
-        print("Benchmarking Query Time")
-        print("Token time avg, Token time STDev, Search time Avg, Search time STDev, TAR, FAR")
-        bench_queries(n=vector_length, database=database[65], queryset=nd_dataset, iterations=10, t=8, parallel=parallel)
 
     if args['benchmark_accuracy']:
         if database is None:
             print("No initialization, exiting")
             exit(1)
-
         print("Benchmarking Accuracy")
         print("TAR, FAR")
         bench_accuracy(n=vector_length, database=database[65], queryset=nd_dataset, iterations=1, t=8, parallel=parallel)
