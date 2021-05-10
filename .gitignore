@@ -2,3 +2,4 @@
 pse/__pycache__/
 fhipe/build/
 fhipe/gen_matrices
+*.prox
