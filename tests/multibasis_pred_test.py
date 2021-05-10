@@ -10,8 +10,6 @@ from pse import multibasispredipe, prox_search, predipe
 sys.path.insert(0, os.path.abspath('.'))
 sys.path.insert(1, os.path.abspath('..'))
 
-def square(x):
-    return x*x
 
 def read_fvector(filePath):
     with open(filePath) as f:
@@ -30,72 +28,71 @@ def process_dataset():
 
 
 # Doing some basic testing
-# print("Testing Basic Multi-basis Predicate Functionality (n = 8)")
-# n = 8
+print("Testing Basic Multi-basis Predicate Functionality (n = 8)")
+n = 8
 group_name = 'MNT159'
 
-# x1 = [1, -1, 1, -1, 1, -1, 1, -1]
-# y1 = [1, 1, 1, 1, 1, 1, 1, 1]
-# y2 = [1, 5, 1, 1, 1, 1, 1, 1]
-# x2 = [0, 0, 0, 0, 0, 0, 0, 0]
+x1 = [1, -1, 1, -1, 1, -1, 1, -1]
+y1 = [1, 1, 1, 1, 1, 1, 1, 1]
+y2 = [1, 5, 1, 1, 1, 1, 1, 1]
+x2 = [0, 0, 0, 0, 0, 0, 0, 0]
 
-# print("Testing for sigma = 1")
-# barbosa = multibasispredipe.MultiBasesPredScheme(n, group_name)
-# barbosa.generate_keys()
-#
-# ctx = barbosa.encrypt(x1)
-# tky1 = barbosa.keygen(y1)
-# tky2 = barbosa.keygen(y2)
-# ctzero = barbosa.encrypt(x2)
+print("Testing for sigma = 1")
+barbosa = multibasispredipe.MultiBasesPredScheme(n, group_name)
+barbosa.generate_keys()
 
-# assert(multibasispredipe.MultiBasesPredScheme.decrypt(barbosa.getPublicParameters(), ctx, tky1, group_name))
-# assert(multibasispredipe.MultiBasesPredScheme.decrypt(barbosa.getPublicParameters(), ctzero, tky1))
-# assert(not multibasispredipe.MultiBasesPredScheme.decrypt(barbosa.getPublicParameters(), ctx, tky2))
-# print("Test passed.")
+ctx = barbosa.encrypt(x1)
+tky1 = barbosa.keygen(y1)
+tky2 = barbosa.keygen(y2)
+ctzero = barbosa.encrypt(x2)
+
+assert(multibasispredipe.MultiBasesPredScheme.decrypt(barbosa.getPublicParameters(), ctx, tky1, group_name))
+assert(multibasispredipe.MultiBasesPredScheme.decrypt(barbosa.getPublicParameters(), ctzero, tky1))
+assert(not multibasispredipe.MultiBasesPredScheme.decrypt(barbosa.getPublicParameters(), ctx, tky2))
+print("Test passed.")
 
 
-# print("Testing for sigma = 4")
-# barbosa = multibasispredipe.MultiBasesPredScheme(n, group_name, False, 4)
-# barbosa.generate_keys()
-# asyncio.run(barbosa.generate_keys_parallel())
-#
-# ctx = barbosa.encrypt(x1)
-# tky1 = barbosa.keygen(y1)
-# tky2 = barbosa.keygen(y2)
-# ctzero = barbosa.encrypt(x2)
+print("Testing for sigma = 4")
+barbosa = multibasispredipe.MultiBasesPredScheme(n, group_name, False, 4)
+barbosa.generate_keys()
 
-# assert(multibasispredipe.MultiBasesPredScheme.decrypt(barbosa.getPublicParameters(), ctx, tky1, group_name))
-# assert(multibasispredipe.MultiBasesPredScheme.decrypt(barbosa.getPublicParameters(), ctzero, tky1))
-# assert(not multibasispredipe.MultiBasesPredScheme.decrypt(barbosa.getPublicParameters(), ctx, tky2))
-# print("Test passed.")
-#
-#
-# print("Testing for sigma = 3")
-# barbosa = multibasispredipe.MultiBasesPredScheme(n, group_name, False, 3)
-# barbosa.generate_keys()
-#
-# ctx = barbosa.encrypt(x1)
-# tky1 = barbosa.keygen(y1)
-# tky2 = barbosa.keygen(y2)
-# ctzero = barbosa.encrypt(x2)
-#
-# assert(multibasispredipe.MultiBasesPredScheme.decrypt(barbosa.getPublicParameters(), ctx, tky1, group_name))
-# assert(multibasispredipe.MultiBasesPredScheme.decrypt(barbosa.getPublicParameters(), ctzero, tky1))
-# assert(not multibasispredipe.MultiBasesPredScheme.decrypt(barbosa.getPublicParameters(), ctx, tky2))
-# print("Test passed.")
+ctx = barbosa.encrypt(x1)
+tky1 = barbosa.keygen(y1)
+tky2 = barbosa.keygen(y2)
+ctzero = barbosa.encrypt(x2)
 
-print("Testing proximity search")
-print("Retrieving ND dataset ...")
-nd_dataset = process_dataset()
-vector_length = len(nd_dataset[0])
-database = prox_search.ProximitySearch(vector_length, predipe.BarbosaIPEScheme, group_name)
-print("Generating secret keys ...")
+assert(multibasispredipe.MultiBasesPredScheme.decrypt(barbosa.getPublicParameters(), ctx, tky1, group_name))
+assert(multibasispredipe.MultiBasesPredScheme.decrypt(barbosa.getPublicParameters(), ctzero, tky1))
+assert(not multibasispredipe.MultiBasesPredScheme.decrypt(barbosa.getPublicParameters(), ctx, tky2))
+print("Test passed.")
+
+
+print("Testing for sigma = 3")
+barbosa = multibasispredipe.MultiBasesPredScheme(n, group_name, False, 3)
+barbosa.generate_keys()
+
+ctx = barbosa.encrypt(x1)
+tky1 = barbosa.keygen(y1)
+tky2 = barbosa.keygen(y2)
+ctzero = barbosa.encrypt(x2)
+
+assert(multibasispredipe.MultiBasesPredScheme.decrypt(barbosa.getPublicParameters(), ctx, tky1, group_name))
+assert(multibasispredipe.MultiBasesPredScheme.decrypt(barbosa.getPublicParameters(), ctzero, tky1))
+assert(not multibasispredipe.MultiBasesPredScheme.decrypt(barbosa.getPublicParameters(), ctx, tky2))
+print("Test passed.")
+
+# print("Testing proximity search")
+# print("Retrieving ND dataset ...")
+# nd_dataset = process_dataset()
+# vector_length = len(nd_dataset[0])
+# database = prox_search.ProximitySearch(vector_length, predipe.BarbosaIPEScheme, group_name)
+# print("Generating secret keys ...")
 # database.generate_keys()
-database.deserialize_key("matrix.prox", "gen.prox")
-print("Encrypting data set ...")
+# database.deserialize_key("matrix.prox", "gen.prox")
+# print("Encrypting data set ...")
 # database.encrypt_dataset(nd_dataset)
 # print(database.predicate_scheme.group.__str__)
-database.encrypt_dataset_parallel(nd_dataset)
+# database.encrypt_dataset_parallel(nd_dataset)
 # prox_search.ProximitySearch.augment_encrypt(vector_length, predipe.BarbosaIPEScheme, group_name, "matrix.prox", "gen.prox", database.public_parameters, nd_dataset)
 
 # query_plain = nd_dataset[3]

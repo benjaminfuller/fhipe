@@ -27,7 +27,6 @@ sys.path.insert(0, os.path.abspath('charm'))
 sys.path.insert(1, os.path.abspath('../charm'))
 
 from charm.toolbox.pairinggroup import PairingGroup,ZR,G1,G2,GT,pair
-from fhipe import ipe
 from pse.predipe import PredIPEScheme
 from pse.predipe import BarbosaIPEScheme
 from charm.core.engine.util import objectToBytes,bytesToObject

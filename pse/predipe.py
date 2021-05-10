@@ -26,7 +26,7 @@ sys.path.insert(1, os.path.abspath('../charm'))
 
 from charm.toolbox.pairinggroup import PairingGroup,ZR,G1,G2,GT,pair
 from subprocess import call, Popen, PIPE
-from fhipe import ipe
+from fhipe.fhipe import ipe
 from charm.core.engine.util import objectToBytes,bytesToObject
 
 class PredIPEScheme():
@@ -94,7 +94,7 @@ class BarbosaIPEScheme(PredIPEScheme):
             matrix_seed=""
         proc = Popen(
             [
-                os.path.dirname(os.path.realpath(__file__)) + '/gen_matrices',
+                os.path.dirname(os.path.realpath(__file__)) + '/../fhipe/fhipe/gen_matrices',
                 str(vector_length),
                 str(group.order()),
                 "1" if simulated else "0",
