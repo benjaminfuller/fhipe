@@ -98,7 +98,7 @@ def bench_enc_data(n, database, dataset, iterations=1, parallel=0):
     print(str(num_bases)+", "+str(parallel)+", "+str(list_average(encrypt_time_list))+", "+
           str(pstdev(encrypt_time_list))+", "+str(list_average(encdb_size))+", "+str(pstdev(encdb_size)))
 
-def plaintext_inner_product(y, t):
+def plaintext_inner_product(y, t, query_class):
     encodedy = [xi if xi == 1 else -1 for xi in y]
     query_set = []
     for i in range(t + 1):
@@ -107,7 +107,10 @@ def plaintext_inner_product(y, t):
         query_set.append(temp_query)
     j=0
     indices = []
+    #print(query_set)
     for x in nd_templates:
+        # if sum([1 if x[i]!= y[i] else 0 for i in range(len(x))]) < 9:
+        #     print("Should see a match between "+str(j)+" and "+str(query_class))
         encodedx = [xi if xi == 1 else -1 for xi in x]
         x2 = list(encodedx)
         x2.append(-1)
@@ -128,7 +131,7 @@ def bench_queries(n, database, queryset, iterations=1, t=0, parallel=0):
     parallel_search_time_list = []
     return_size_list = []
     true_accept_rate = 0
-    false_accept_rate = 0
+    false_matches = []
     for i in range(iterations):
         query_class = random.randrange(0,len(queryset))
         query_choice = random.randrange(1,len(queryset[query_class]))
@@ -139,26 +142,23 @@ def bench_queries(n, database, queryset, iterations=1, t=0, parallel=0):
         token_time_list.append(token_b - token_a)
 
         search_a = time.time()
-        indices = plaintext_inner_product(dataitem, t)
-        print(str(indices)+" "+str(query_class))
-        #print(query_class)
-
-        # if parallel is 1:
-        #     indices =database.parallel_search(token)
-        # else:
-        #     indices = database.search(token)
+        # indices = plaintext_inner_product(dataitem, t, query_class)
+        if parallel is 1:
+            indices =database.parallel_search(token)
+        else:
+            indices = database.search(token)
+        number_false_matches = len(indices)
         if query_class in indices:
             true_accept_rate = true_accept_rate + 1 / iterations
-            if len(indices) > 1:
-                false_accept_rate = false_accept_rate + 1 / iterations
-        elif len(indices) > 0:
-            false_accept_rate = false_accept_rate + 1 / iterations
+            number_false_matches = number_false_matches - 1
+        false_matches.append(number_false_matches)
         search_b = time.time()
         parallel_search_time_list.append(search_b - search_a)
 
     print(str(list_average(token_time_list)) + ", "+
           str(pstdev(token_time_list)) + ", " + str(list_average(parallel_search_time_list)) + ", "+
-          str(pstdev(parallel_search_time_list))+", "+str(true_accept_rate)+", "+str(false_accept_rate))
+          str(pstdev(parallel_search_time_list))+", "+str(true_accept_rate)+", "
+          +str(list_average(false_matches))+", "+str(pstdev(false_matches)))
 
 def bench_accuracy(n, database, queryset, iterations=1, t=0, parallel=0):
     true_accept_rate = 0
@@ -176,7 +176,7 @@ def bench_accuracy(n, database, queryset, iterations=1, t=0, parallel=0):
                 print("Indices "+str(indices))
                 print(dataitem)
                 print(queryset[query_class][0])
-                if str(query_class) in indices:
+                if query_class in indices:
                     true_accept_rate = true_accept_rate + 1 / total_queries
                     if len(indices) > 1:
                         false_accept_rate = false_accept_rate + 1 / total_queries
@@ -269,9 +269,9 @@ if __name__ == "__main__":
 
     if args['load']:
         database = {}
-        # for i in range(65):
-        #     database[i] = prox_search.ProximitySearch(vector_length, multibasispredipe.MultiBasesPredScheme)
-        #     database[i].read_key_from_file(matrix_file + str(65 - i), gen_file + str(65 - i))
+        for i in range(65):
+            database[i] = prox_search.ProximitySearch(vector_length, multibasispredipe.MultiBasesPredScheme)
+            database[i].read_key_from_file(matrix_file + str(65 - i), gen_file + str(65 - i))
         database[65] = prox_search.ProximitySearch(vector_length, predipe.BarbosaIPEScheme, group_name)
         database[65].read_key_from_file(matrix_file, gen_file)
 
@@ -295,14 +295,14 @@ if __name__ == "__main__":
             print("No initialization, exiting")
             exit(1)
         print("Benchmarking Multi Basis Query Time", flush=True)
-        print("Token time avg, Token time STDev, Search time Avg, Search time STDev, TAR, FAR")
+        print("Token time avg, Token time STDev, Search time Avg, Search time STDev, TAR, Avg Num False Matches, STDdev False Matches")
 
-        for i in range(65,66):
+        for i in range(66):
             if i == 65:
                 print("Benchmarking Query Time")
-                print("Token time avg, Token time STDev, Search time Avg, Search time STDev, TAR, FAR")
+                print("Token time avg, Token time STDev, Search time Avg, Search time STDev, Avg Num False Matches, STDdev False Matches")
             database[i].encrypt_dataset_parallel(nd_templates)
-            bench_queries(n=vector_length, database=database[i], queryset=nd_dataset, iterations=100, t=8, parallel=parallel)
+            bench_queries(n=vector_length, database=database[i], queryset=nd_dataset, iterations=100, t=18, parallel=parallel)
 
     if args['benchmark_accuracy']:
         if database is None:
