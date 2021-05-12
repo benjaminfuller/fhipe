@@ -28,6 +28,7 @@ sys.path.insert(1, os.path.abspath('..'))
 import random, time, zlib
 from fhipe import predipe, prox_search, multibasispredipe
 from statistics import pstdev
+from math import ceil
 
 
 def list_average(L):
@@ -69,9 +70,9 @@ def bench_keygen(n, group_name, ipescheme, iterations=1, matrix_file=None, gen_f
         keygen_time_list.append(keygen_b - keygen_a)
         database_size.append(database.get_seckey_size())
 
-    print(str(num_bases)+", "+str(list_average(setup_time_list))+", "+str(pstdev(setup_time_list)) +
+    print(str(n)+", "+str(num_bases)+", "+str(list_average(setup_time_list))+", "+str(pstdev(setup_time_list)) +
           ", " + str(list_average(keygen_time_list))+", " + str(pstdev(keygen_time_list)) +
-          ", " + str(list_average(database_size))+", "+str(pstdev(database_size)))
+          ", " + str(list_average(database_size))+", "+str(pstdev(database_size)), flush=True)
     if matrix_file is not None and gen_file is not None and save_keys:
         if ipescheme is predipe.BarbosaIPEScheme:
             database.write_key_to_file(matrix_file, gen_file)
@@ -133,8 +134,8 @@ def bench_queries(n, database, queryset, iterations=1, t=0, parallel=0):
     true_accept_rate = 0
     false_matches = []
     for i in range(iterations):
-        query_class = random.randrange(0,len(queryset))
-        query_choice = random.randrange(1,len(queryset[query_class]))
+        query_class = random.randrange(0,len(queryset)) # [0, 355]
+        query_choice = random.randrange(1,len(queryset[query_class])) 
         dataitem = queryset[query_class][query_choice]
         token_a = time.time()
         token = database.generate_query(dataitem, t)
@@ -254,18 +255,19 @@ if __name__ == "__main__":
         save = True
     if args['benchmark_key_gen']:
         database={}
-        print("Benchmarking Multi Basis Generation", flush=True)
-        print("Number Bases, Setup Time Av, Setup Time STDev, KeyGen Time Avg, KeyGen Time STDEv, Key size Avg, "
-              "Key Size STDev")
-        for i in range(65):
-            database[i] = bench_keygen(n=vector_length, group_name=group_name,
-                                    ipescheme=multibasispredipe.MultiBasesPredScheme, iterations=10,
-                                    matrix_file=matrix_file, gen_file=gen_file, save_keys=save, num_bases=65 - i)
 
-        print("Benchmarking Barbosa Key Generation", flush=True)
-        database[65] = bench_keygen(n=vector_length, group_name=group_name,
-                                ipescheme=predipe.BarbosaIPEScheme, iterations=10,
-                                matrix_file=matrix_file, gen_file=gen_file, save_keys=save, num_bases=1)
+        print("Benchmarking Multi Basis Generation", flush=True)
+        print("Vector Length, Number Bases, Setup Time Av, Setup Time STDev, KeyGen Time Avg, KeyGen Time STDEv, Key size Avg, "
+              "Key Size STDev")
+        for vector_length in range(51):
+            # for i in range(5,10):
+            #     database[i] = bench_keygen(n=vector_length, group_name=group_name,
+            #                             ipescheme=multibasispredipe.MultiBasesPredScheme, iterations=1,
+            #                             matrix_file=matrix_file, gen_file=gen_file, save_keys=save, num_bases=i)
+
+            database[65] = bench_keygen(n=vector_length*10, group_name=group_name,
+                                    ipescheme=predipe.BarbosaIPEScheme, iterations=1,
+                                    matrix_file=matrix_file, gen_file=gen_file, save_keys=save, num_bases=1)
 
     if args['load']:
         database = {}
@@ -282,14 +284,9 @@ if __name__ == "__main__":
 
         print("Benchmarking Multibasis Encryption", flush=True)
         print("Number Bases, Parallel, Time Avg, Time StDev, Size Avg, Size StDev")
-        for i in range(65):
+        for i in range(66):
             bench_enc_data(n=vector_length, database=database[i], dataset=nd_templates, iterations=10,
                            parallel=parallel)
-
-        print("Benchmarking Barbosa Encryption", flush=True)
-        print("Number Bases, Parallel, Time Avg, Time StDev, Size Avg, Size StDev")
-        bench_enc_data(n=vector_length, database=database[65], dataset=nd_templates, iterations=10, parallel=parallel)
-
     if args['benchmark_queries']:
         if database is None:
             print("No initialization, exiting")
@@ -298,9 +295,6 @@ if __name__ == "__main__":
         print("Token time avg, Token time STDev, Search time Avg, Search time STDev, TAR, Avg Num False Matches, STDdev False Matches")
 
         for i in range(66):
-            if i == 65:
-                print("Benchmarking Query Time")
-                print("Token time avg, Token time STDev, Search time Avg, Search time STDev, Avg Num False Matches, STDdev False Matches")
             database[i].encrypt_dataset_parallel(nd_templates)
             bench_queries(n=vector_length, database=database[i], queryset=nd_dataset, iterations=100, t=18, parallel=parallel)
 
@@ -310,4 +304,4 @@ if __name__ == "__main__":
             exit(1)
         print("Benchmarking Accuracy")
         print("TAR, FAR")
-        bench_accuracy(n=vector_length, database=database[65], queryset=nd_dataset, iterations=1, t=8, parallel=parallel)
+        bench_accuracy(n=vector_length, database=database[65], queryset=nd_dataset, iterations=1, t=18, parallel=parallel)
