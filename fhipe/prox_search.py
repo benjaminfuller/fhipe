@@ -151,7 +151,7 @@ class ProximitySearch():
             enc_file.close()
         token = bytesToObject(token_bytes, prox_scheme.predinstance.group)
         indices = prox_scheme.search(token)
-        return indices
+        return [x+start_index for x in indices]
 
     def parallel_search(self, query):
         self.parallel = 1
@@ -190,7 +190,7 @@ class ProximitySearch():
             index = None
             for subquery in query:
                 if self.predinstance.decrypt(self.predinstance.getPublicParameters(), self.enc_data[x], subquery, self.group_name):
-                    index = x
+                    index = int(x)
                     break
             if index is not None:
                 result_list.append(index)
