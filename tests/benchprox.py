@@ -281,6 +281,10 @@ if __name__ == "__main__":
             bench_enc_data(n=vector_sizes[i], database=database, dataset=templates, iterations=1,
                                parallel=parallel)
             print("Search", flush=True)
+            print("Token time avg, Token time STDev, Search time Avg, Search time STDev, TAR, "
+                "Avg Num False Matches, STDdev False Matches")
+            bench_queries(n=vector_sizes[i], database=database, queryset=dataset, iterations=1, t=0,
+                          parallel=parallel)
             bench_queries(n=vector_sizes[i], database=database, queryset=dataset, iterations=1, t=vector_t[i],
                           parallel=parallel)
 
