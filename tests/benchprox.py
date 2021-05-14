@@ -13,6 +13,7 @@ LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
 OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 PERFORMANCE OF THIS SOFTWARE.
 """
+from typing import List
 
 """
 Obtains micro-benchmarks for the running times and parameter sizes of IPE and 
@@ -215,6 +216,11 @@ def process_dataset():
 
     return nd_dataset, iitd_dataset
 
+def generate_synthetic_data(n, vector_length):
+    dataset = []
+    for i in range(n):
+        dataset.append([random.randint(0,1) for x in range(vector_length)])
+    return dataset
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Benchmarking of Proximity Search Schemes.')
@@ -234,6 +240,8 @@ if __name__ == "__main__":
                         default=0, help='Benchmark Accuracy')
     parser.add_argument('--parallel', '-p', const=1, type=int, nargs='?',
                         default=0, help='Whether to run parallel algorithms, default yes')
+    parser.add_argument('--full_timing', '-ft', const=1, type=int, nargs='?',
+                        default=0, help='Full Timing Test for Multiple Vector sizes')
     args = vars(parser.parse_args())
 
     matrix_file = None
@@ -251,6 +259,28 @@ if __name__ == "__main__":
     save = False
     database = None
     parallel = args['parallel']
+    if args['full_timing']:
+        vector_sizes = [128, 192, 256, 384, 512, 768, 1024, 2048, 4096]  # type: List[int]
+        vector_sigma = [3, 5, 7, 10, 13, 19, 25, 51, 103]
+        vector_t = [38, 57, 76, 115, 153, 230, 307, 614, 1228]
+        for i in range(len(vector_sizes)):
+            synthetic_data = generate_synthetic_data(356, vector_sizes[i])
+            print("Generation", flush=True)
+            print("Vector Length, Number Bases, Setup Time Av, Setup Time STDev, KeyGen Time Avg, KeyGen Time STDEv, Key size Avg, "
+                "Key Size STDev")
+            database = bench_keygen(n=vector_sizes[i], group_name=group_name,
+                                    ipescheme=multibasispredipe.MultiBasesPredScheme, iterations=1,
+                                    matrix_file=matrix_file, gen_file=gen_file, save_keys=False,
+                                    num_bases=vector_sigma[i])
+            print("Encryption", flush=True)
+            print("Number Bases, Parallel, Time Avg, Time StDev, Size Avg, Size StDev")
+            bench_enc_data(n=vector_sizes[i], database=database, dataset=synthetic_data, iterations=1,
+                               parallel=parallel)
+            print("Search", flush=True)
+            bench_queries(n=vector_sizes[i], database=database, queryset=synthetic_data, iterations=1, t=vector_t[i],
+                          parallel=parallel)
+
+
     if args['save']:
         save = True
     if args['benchmark_key_gen']:
