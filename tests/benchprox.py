@@ -216,11 +216,15 @@ def process_dataset():
 
     return nd_dataset, iitd_dataset
 
-def generate_synthetic_data(n, vector_length):
-    dataset = []
+def generate_synthetic_data(n, vector_length, examples = 2):
+    dataset = {}
     for i in range(n):
-        dataset.append([random.randint(0,1) for x in range(vector_length)])
-    return dataset
+        temp_list = []
+        for j in range(examples):
+             temp_list.append([random.randint(0,1) for x in range(vector_length)])
+        dataset[i] = temp_list
+    templates = [dataset[x][0] for x in dataset]
+    return (dataset, templates)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Benchmarking of Proximity Search Schemes.')
@@ -264,7 +268,7 @@ if __name__ == "__main__":
         vector_sigma = [3, 5, 7, 10, 13, 19, 25, 51, 103]
         vector_t = [38, 57, 76, 115, 153, 230, 307, 614, 1228]
         for i in range(len(vector_sizes)):
-            synthetic_data = generate_synthetic_data(356, vector_sizes[i])
+            (dataset, templates) = generate_synthetic_data(356, vector_sizes[i])
             print("Generation", flush=True)
             print("Vector Length, Number Bases, Setup Time Av, Setup Time STDev, KeyGen Time Avg, KeyGen Time STDEv, Key size Avg, "
                 "Key Size STDev")
@@ -274,10 +278,10 @@ if __name__ == "__main__":
                                     num_bases=vector_sigma[i])
             print("Encryption", flush=True)
             print("Number Bases, Parallel, Time Avg, Time StDev, Size Avg, Size StDev")
-            bench_enc_data(n=vector_sizes[i], database=database, dataset=synthetic_data, iterations=1,
+            bench_enc_data(n=vector_sizes[i], database=database, dataset=templates, iterations=1,
                                parallel=parallel)
             print("Search", flush=True)
-            bench_queries(n=vector_sizes[i], database=database, queryset=synthetic_data, iterations=1, t=vector_t[i],
+            bench_queries(n=vector_sizes[i], database=database, queryset=dataset, iterations=1, t=vector_t[i],
                           parallel=parallel)
 
 
